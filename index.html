@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>鉄骨加工 進捗管理</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --bg2: #181c25;
+  --bg3: #1e2333;
+  --border: #2a3045;
+  --border2: #3a4560;
+  --text: #e8eaf0;
+  --sub: #7a8399;
+  --steel: #4a9eff;
+  --orange: #ff7c2a;
+  --green: #2dcc7a;
+  --yellow: #f5c518;
+  --purple: #9b72ff;
+  --teal: #1ec8c8;
+  --red: #ff4d4d;
+  --card-r: 10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* ====== HEADER ====== */
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.header-logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:32px;height:32px;background:var(--steel);border-radius:6px;display:flex;align-items:center;justify-content:center;}
+.logo-icon svg{width:18px;height:18px;fill:white;}
+.header h1{font-size:16px;font-weight:700;letter-spacing:0.05em;color:var(--text);}
+.header-project{font-size:12px;color:var(--sub);background:var(--bg3);border:1px solid var(--border);padding:4px 10px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:6px;}
+
+/* ====== BOTTOM NAV ====== */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom,0);}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;cursor:pointer;border:none;background:transparent;color:var(--sub);font-size:10px;transition:color .15s;}
+.nav-btn.active{color:var(--steel);}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.8;fill:none;}
+
+/* ====== MAIN CONTENT ====== */
+.main{padding:16px;padding-bottom:80px;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ====== STATS CARDS ====== */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:12px 10px;text-align:center;}
+.stat-num{font-size:22px;font-weight:700;line-height:1;}
+.stat-lbl{font-size:10px;color:var(--sub);margin-top:4px;}
+.stat-card.steel .stat-num{color:var(--steel);}
+.stat-card.orange .stat-num{color:var(--orange);}
+.stat-card.green .stat-num{color:var(--green);}
+
+/* ====== PROGRESS BAR ====== */
+.prog-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:14px;margin-bottom:16px;}
+.prog-title{font-size:12px;color:var(--sub);margin-bottom:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;}
+.stage-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.stage-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.stage-name{font-size:12px;width:60px;flex-shrink:0;}
+.stage-bar-wrap{flex:1;background:var(--bg3);border-radius:4px;height:8px;overflow:hidden;}
+.stage-bar{height:100%;border-radius:4px;transition:width .4s ease;}
+.stage-count{font-size:11px;color:var(--sub);width:30px;text-align:right;}
+
+/* ====== PARTS LIST ====== */
+.list-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.search-wrap{flex:1;position:relative;}
+.search-wrap input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 8px 8px 34px;color:var(--text);font-size:14px;outline:none;}
+.search-wrap input::placeholder{color:var(--sub);}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--sub);stroke-width:2;fill:none;}
+.filter-btn{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--sub);font-size:12px;cursor:pointer;white-space:nowrap;}
+.filter-btn.active{border-color:var(--steel);color:var(--steel);}
+
+.filter-chips{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.filter-chips::-webkit-scrollbar{display:none;}
+.chip{padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--sub);white-space:nowrap;transition:all .15s;}
+.chip.active{background:var(--steel);border-color:var(--steel);color:white;}
+
+/* ====== PART CARD ====== */
+.part-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;}
+.part-card:hover,.part-card:active{border-color:var(--border2);}
+.part-card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
+.part-num{font-size:15px;font-weight:700;font-family:'Courier New',monospace;letter-spacing:0.05em;}
+.stage-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;}
+.part-info{display:flex;gap:16px;margin-bottom:10px;}
+.part-detail{font-size:12px;color:var(--sub);}
+.part-detail span{color:var(--text);font-weight:500;}
+.stage-pipeline{display:flex;gap:4px;align-items:center;}
+.pip-step{width:28px;height:5px;border-radius:3px;background:var(--bg3);}
+.pip-step.done{background:var(--green);}
+.pip-step.active{background:var(--orange);}
+.pip-arrow{font-size:10px;color:var(--border2);}
+
+/* ====== STAGE COLORS ====== */
+.s0{background:rgba(122,131,153,.15);color:var(--sub);}
+.s1{background:rgba(74,158,255,.15);color:var(--steel);}
+.s2{background:rgba(245,197,24,.15);color:var(--yellow);}
+.s3{background:rgba(255,124,42,.15);color:var(--orange);}
+.s4{background:rgba(30,200,200,.15);color:var(--teal);}
+.s5{background:rgba(45,204,122,.15);color:var(--green);}
+.dot0{background:var(--sub);}
+.dot1{background:var(--steel);}
+.dot2{background:var(--yellow);}
+.dot3{background:var(--orange);}
+.dot4{background:var(--teal);}
+.dot5{background:var(--green);}
+.bar0{background:var(--sub);}
+.bar1{background:var(--steel);}
+.bar2{background:var(--yellow);}
+.bar3{background:var(--orange);}
+.bar4{background:var(--teal);}
+.bar5{background:var(--green);}
+
+/* ====== FAB ====== */
+.fab{position:fixed;right:20px;bottom:72px;width:52px;height:52px;border-radius:50%;background:var(--steel);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(74,158,255,.4);z-index:50;transition:transform .15s;}
+.fab:active{transform:scale(0.93);}
+.fab svg{width:22px;height:22px;stroke:white;stroke-width:2.5;fill:none;}
+
+/* ====== MODAL ====== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .25s ease;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px;}
+.form-group{margin-bottom:14px;}
+.form-group label{font-size:12px;color:var(--sub);display:block;margin-bottom:6px;font-weight:600;letter-spacing:0.05em;}
+.form-group input,.form-group select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;}
+.form-group input:focus,.form-group select:focus{border-color:var(--steel);}
+.form-group select option{background:var(--bg3);}
+.btn-primary{width:100%;background:var(--steel);border:none;border-radius:10px;padding:14px;color:white;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;}
+.btn-secondary{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--sub);font-size:14px;cursor:pointer;margin-top:8px;}
+
+/* ====== DETAIL MODAL ====== */
+.detail-num{font-size:24px;font-weight:700;font-family:'Courier New',monospace;margin-bottom:4px;}
+.detail-beam{font-size:14px;color:var(--sub);margin-bottom:20px;}
+.stage-list{display:flex;flex-direction:column;gap:6px;margin-bottom:20px;}
+.stage-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;transition:all .15s;}
+.stage-item.current{border-color:var(--orange);background:rgba(255,124,42,.08);}
+.stage-item.done-stage{border-color:var(--green);background:rgba(45,204,122,.06);}
+.stage-item.next-stage{border-color:var(--steel);background:rgba(74,158,255,.06);}
+.stage-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.stage-info{flex:1;}
+.stage-item-name{font-size:14px;font-weight:600;}
+.stage-item-time{font-size:11px;color:var(--sub);margin-top:2px;}
+.stage-check{width:20px;height:20px;flex-shrink:0;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;}
+.info-cell{background:var(--bg3);border-radius:8px;padding:10px 12px;}
+.info-cell .lbl{font-size:10px;color:var(--sub);margin-bottom:2px;}
+.info-cell .val{font-size:14px;font-weight:600;}
+.btn-advance{width:100%;background:var(--orange);border:none;border-radius:10px;padding:14px;color:white;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-advance:disabled{background:var(--bg3);color:var(--sub);cursor:default;}
+.btn-advance svg{width:18px;height:18px;stroke:white;stroke-width:2.5;fill:none;}
+
+/* ====== ADD PARTS SCREEN ====== */
+.bulk-area{background:var(--bg2);border:2px dashed var(--border);border-radius:var(--card-r);padding:24px;text-align:center;margin-bottom:16px;cursor:pointer;}
+.bulk-area:hover{border-color:var(--steel);}
+.bulk-icon{font-size:32px;margin-bottom:8px;}
+.scan-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:16px;margin-bottom:16px;}
+.scan-title{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.scan-title svg{width:16px;height:16px;stroke:var(--steel);stroke-width:2;fill:none;}
+.qr-sim{background:var(--bg3);border-radius:8px;padding:20px;text-align:center;margin-bottom:12px;position:relative;overflow:hidden;}
+.qr-scan-line{position:absolute;left:0;right:0;height:2px;background:var(--steel);animation:scan 2s linear infinite;opacity:.7;}
+@keyframes scan{0%{top:10%;}100%{top:90%;}}
+.quick-parts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.quick-btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;color:var(--text);cursor:pointer;text-align:left;}
+.quick-btn:hover,.quick-btn:active{border-color:var(--steel);}
+.quick-lbl{font-size:10px;color:var(--sub);margin-bottom:2px;}
+
+/* ====== HISTORY ====== */
+.history-list{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);overflow:hidden;}
+.history-item{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.history-item:last-child{border-bottom:none;}
+.hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.hist-text{flex:1;font-size:13px;}
+.hist-time{font-size:11px;color:var(--sub);}
+
+/* ====== PROJECT MODAL ====== */
+.proj-list{margin-bottom:16px;}
+.proj-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);margin-bottom:8px;cursor:pointer;}
+.proj-item.active-proj{border-color:var(--steel);}
+.proj-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.proj-name{flex:1;font-size:14px;font-weight:600;}
+.proj-count{font-size:11px;color:var(--sub);}
+.proj-check{font-size:16px;}
+
+/* ====== SECTION TITLE ====== */
+.sec-title{font-size:12px;font-weight:600;color:var(--sub);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ====== EMPTY STATE ====== */
+.empty{text-align:center;padding:48px 24px;color:var(--sub);}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+.empty p{font-size:14px;}
+
+/* ====== SCAN ANIMATION ====== */
+.scan-frame{border:2px solid var(--steel);border-radius:4px;width:120px;height:120px;margin:0 auto 8px;position:relative;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--sub);}
+.scan-frame::before,.scan-frame::after{content:'';position:absolute;width:16px;height:16px;border:3px solid var(--steel);}
+.scan-frame::before{top:-3px;left:-3px;border-right:none;border-bottom:none;}
+.scan-frame::after{bottom:-3px;right:-3px;border-left:none;border-top:none;}
+
+/* ====== NOTIFY ====== */
+.notify{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--green);color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:300;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;}
+.notify.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.notify.warn{background:var(--orange);}
+
+/* ====== DATE BADGE ====== */
+.date-badge{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:10px;color:var(--sub);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><rect x="2" y="8" width="20" height="3" rx="1"/><rect x="2" y="13" width="20" height="3" rx="1"/><rect x="6" y="3" width="3" height="18" rx="1"/><rect x="15" y="3" width="3" height="18" rx="1"/></svg>
+    </div>
+    <h1>鉄骨 進捗管理</h1>
+  </div>
+  <div class="header-project" id="projectBtn">
+    <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    <span id="currentProjectName">物件選択</span>
+  </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div class="notify" id="notify"></div>
+
+<!-- PAGES -->
+<div class="main">
+
+  <!-- ======== PAGE: ダッシュボード ======== -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-grid">
+      <div class="stat-card steel"><div class="stat-num" id="totalCount">0</div><div class="stat-lbl">総部材数</div></div>
+      <div class="stat-card orange"><div class="stat-num" id="inProgressCount">0</div><div class="stat-lbl">加工中</div></div>
+      <div class="stat-card green"><div class="stat-num" id="doneCount">0</div><div class="stat-lbl">完了</div></div>
+    </div>
+
+    <div class="prog-section">
+      <div class="prog-title">工程別 進捗</div>
+      <div id="stageProgressList"></div>
+    </div>
+
+    <div class="sec-title">最近の更新</div>
+    <div class="history-list" id="historyList">
+      <div class="empty"><div class="empty-icon">📋</div><p>更新履歴がありません</p></div>
+    </div>
+  </div>
+
+  <!-- ======== PAGE: 部材一覧 ======== -->
+  <div class="page" id="page-list">
+    <div class="list-header">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="部材番号・断面で検索..." oninput="renderParts()">
+      </div>
+    </div>
+    <div class="filter-chips" id="filterChips"></div>
+    <div id="partsList"></div>
+  </div>
+
+  <!-- ======== PAGE: 部材登録 ======== -->
+  <div class="page" id="page-add">
+    <div class="scan-section">
+      <div class="scan-title">
+        <svg viewBox="0 0 24 24"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="15" y="2" width="7" height="7" rx="1"/><rect x="2" y="15" width="7" height="7" rx="1"/><rect x="15" y="15" width="4" height="4" rx="0.5"/><rect x="20" y="15" width="2" height="2" rx="0.5"/><rect x="15" y="20" width="2" height="2" rx="0.5"/><rect x="18" y="19" width="4" height="3" rx="0.5"/></svg>
+        QRコード / バーコードスキャン
+      </div>
+      <div class="qr-sim">
+        <div class="qr-scan-line"></div>
+        <div class="scan-frame">QR/BARCODEをここに<br>かざしてください</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:6px;">※カメラ連携は実装予定</div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--sub);margin-bottom:8px;">または 部材番号を直接入力</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="quickScanInput" placeholder="例: G1F-B01-W" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;outline:none;">
+        <button onclick="quickScanRegister()" style="background:var(--steel);border:none;border-radius:8px;padding:10px 16px;color:white;font-size:13px;font-weight:700;cursor:pointer;">登録</button>
+      </div>
+    </div>
+
+    <div class="sec-title">詳細登録</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:16px;margin-bottom:16px;">
+      <div class="form-group">
+        <label>部材番号</label>
+        <input type="text" id="addNum" placeholder="例: G1F-B01-W">
+      </div>
+      <div class="form-group">
+        <label>断面寸法</label>
+        <input type="text" id="addSection" placeholder="例: H-300×150×6.5×9">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label>本数</label>
+          <input type="number" id="addQty" value="1" min="1">
+        </div>
+        <div class="form-group">
+          <label>部材種別</label>
+          <select id="addType">
+            <option value="梁">梁</option>
+            <option value="柱">柱</option>
+            <option value="ブレース">ブレース</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>長さ (mm)</label>
+        <input type="number" id="addLength" placeholder="例: 6500">
+      </div>
+      <button class="btn-primary" onclick="addPart()">+ 部材を登録する</button>
+    </div>
+
+    <div class="sec-title">クイック登録</div>
+    <div class="quick-parts" id="quickPartsGrid"></div>
+  </div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" onclick="openAddModal()">
+  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-dashboard" onclick="showPage('dashboard')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    ダッシュボード
+  </button>
+  <button class="nav-btn" id="nav-list" onclick="showPage('list')">
+    <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>
+    部材一覧
+  </button>
+  <button class="nav-btn" id="nav-add" onclick="showPage('add')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    部材登録
+  </button>
+</div>
+
+<!-- PART DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-overlay" id="projectModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>物件選択</h2>
+    <div class="proj-list" id="projList"></div>
+    <div class="form-group">
+      <label>新規物件を追加</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="newProjectName" placeholder="物件名を入力...">
+        <button onclick="addProject()" style="background:var(--steel);border:none;border-radius:8px;padding:10px 16px;color:white;font-size:13px;font-weight:700;cursor:pointer;">追加</button>
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="closeModal('projectModal')">閉じる</button>
+  </div>
+</div>
+
+<script>
+const STAGES = [
+  {id:0, name:'未着手',    emoji:'⬜', color:'sub',    barClass:'bar0', dotClass:'dot0', badgeClass:'s0'},
+  {id:1, name:'切断',      emoji:'✂️', color:'steel',  barClass:'bar1', dotClass:'dot1', badgeClass:'s1'},
+  {id:2, name:'穴あけ',   emoji:'⚙️', color:'yellow', barClass:'bar2', dotClass:'dot2', badgeClass:'s2'},
+  {id:3, name:'溶接',      emoji:'🔥', color:'orange', barClass:'bar3', dotClass:'dot3', badgeClass:'s3'},
+  {id:4, name:'検査',      emoji:'🔍', color:'teal',   barClass:'bar4', dotClass:'dot4', badgeClass:'s4'},
+  {id:5, name:'完了',      emoji:'✅', color:'green',  barClass:'bar5', dotClass:'dot5', badgeClass:'s5'},
+];
+
+const QUICK_PARTS = [
+  {num:'G1F-B01',section:'H-300×150×6.5×9',type:'梁',len:6000},
+  {num:'G1F-B02',section:'H-244×175×7×11', type:'梁',len:5500},
+  {num:'G1F-C01',section:'H-200×200×8×12', type:'柱',len:4000},
+  {num:'G2F-B01',section:'H-400×200×8×13', type:'梁',len:7200},
+];
+
+let state = {
+  projects: [],
+  currentProject: null,
+  parts: [],
+  history: [],
+  filterStage: -1,
+};
+
+async function loadState() {
+  try {
+    const r = await window.storage.get('steel_state');
+    if (r) { Object.assign(state, JSON.parse(r.value)); }
+  } catch(e) {}
+  if (!state.projects.length) {
+    state.projects = [{id:'p1',name:'サンプル物件 A棟',color:'steel'}];
+    state.currentProject = 'p1';
+    state.parts = [
+      {id:'pt1',num:'G1F-B01-W',section:'H-300×150×6.5×9',type:'梁',qty:1,len:6000,stage:3,project:'p1',created:Date.now()-86400000*2,updated:Date.now()-3600000},
+      {id:'pt2',num:'G1F-B02-W',section:'H-244×175×7×11', type:'梁',qty:2,len:5500,stage:5,project:'p1',created:Date.now()-86400000*2,updated:Date.now()-7200000},
+      {id:'pt3',num:'G1F-C01-W',section:'H-200×200×8×12', type:'柱',qty:4,len:4000,stage:1,project:'p1',created:Date.now()-86400000,updated:Date.now()-1800000},
+      {id:'pt4',num:'G2F-B01-W',section:'H-400×200×8×13', type:'梁',qty:1,len:7200,stage:0,project:'p1',created:Date.now()-3600000,updated:Date.now()-3600000},
+      {id:'pt5',num:'G2F-B02-W',section:'H-350×175×7×11', type:'梁',qty:2,len:6500,stage:2,project:'p1',created:Date.now()-86400000,updated:Date.now()-600000},
+    ];
+    state.history = [
+      {partNum:'G1F-B02-W',from:4,to:5,time:Date.now()-7200000},
+      {partNum:'G2F-B02-W',from:1,to:2,time:Date.now()-600000},
+      {partNum:'G1F-B01-W',from:2,to:3,time:Date.now()-3600000},
+    ];
+  }
+  render();
+}
+
+async function saveState() {
+  try { await window.storage.set('steel_state', JSON.stringify(state)); } catch(e) {}
+}
+
+function render() {
+  updateHeader();
+  renderDashboard();
+  renderParts();
+  renderQuickParts();
+}
+
+function updateHeader() {
+  const proj = state.projects.find(p=>p.id===state.currentProject);
+  document.getElementById('currentProjectName').textContent = proj ? proj.name : '物件選択';
+}
+
+function renderDashboard() {
+  const parts = state.parts.filter(p=>p.project===state.currentProject);
+  const total = parts.reduce((s,p)=>s+p.qty,0);
+  const done = parts.filter(p=>p.stage===5).reduce((s,p)=>s+p.qty,0);
+  const inProg = parts.filter(p=>p.stage>0&&p.stage<5).reduce((s,p)=>s+p.qty,0);
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('doneCount').textContent = done;
+  document.getElementById('inProgressCount').textContent = inProg;
+
+  // Stage progress
+  const stageList = document.getElementById('stageProgressList');
+  stageList.innerHTML = STAGES.map(s=>{
+    const cnt = parts.filter(p=>p.stage===s.id).reduce((acc,p)=>acc+p.qty,0);
+    const pct = total ? Math.round(cnt/total*100) : 0;
+    return `<div class="stage-row">
+      <div class="stage-dot ${s.dotClass}"></div>
+      <div class="stage-name" style="font-size:12px;">${s.name}</div>
+      <div class="stage-bar-wrap"><div class="stage-bar ${s.barClass}" style="width:${pct}%"></div></div>
+      <div class="stage-count">${cnt}</div>
+    </div>`;
+  }).join('');
+
+  // History
+  const histEl = document.getElementById('historyList');
+  const hist = [...state.history].reverse().slice(0,8);
+  if (!hist.length) {
+    histEl.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>更新履歴がありません</p></div>';
+    return;
+  }
+  histEl.innerHTML = hist.map(h=>{
+    const from = STAGES[h.from];
+    const to = STAGES[h.to];
+    const t = new Date(h.time);
+    const timeStr = formatTime(h.time);
+    return `<div class="history-item">
+      <div class="hist-dot ${to.dotClass}"></div>
+      <div class="hist-text"><b>${h.partNum}</b> ${from.name} → ${to.name}</div>
+      <div class="hist-time">${timeStr}</div>
+    </div>`;
+  }).join('');
+}
+
+function formatTime(ts) {
+  const diff = Date.now()-ts;
+  if (diff < 60000) return 'たった今';
+  if (diff < 3600000) return Math.floor(diff/60000)+'分前';
+  if (diff < 86400000) return Math.floor(diff/3600000)+'時間前';
+  return Math.floor(diff/86400000)+'日前';
+}
+
+function renderParts() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const parts = state.parts.filter(p=>{
+    if (p.project !== state.currentProject) return false;
+    if (state.filterStage >= 0 && p.stage !== state.filterStage) return false;
+    if (search && !p.num.toLowerCase().includes(search) && !p.section.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // Filter chips
+  const chips = document.getElementById('filterChips');
+  chips.innerHTML = `<div class="chip ${state.filterStage===-1?'active':''}" onclick="setFilter(-1)">すべて</div>` +
+    STAGES.map(s=>`<div class="chip ${state.filterStage===s.id?'active':''}" onclick="setFilter(${s.id})">${s.emoji} ${s.name}</div>`).join('');
+
+  const el = document.getElementById('partsList');
+  if (!parts.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>部材が見つかりません</p></div>';
+    return;
+  }
+  el.innerHTML = parts.map(p=>{
+    const st = STAGES[p.stage];
+    const pipe = STAGES.slice(0,6).map((s,i)=>`<div class="pip-step ${i<p.stage?'done':i===p.stage?'active':''}"></div>`).join('<div class="pip-arrow">›</div>');
+    return `<div class="part-card" onclick="openDetail('${p.id}')">
+      <div class="part-card-top">
+        <div class="part-num">${p.num}</div>
+        <div class="stage-badge ${st.badgeClass}">${st.emoji} ${st.name}</div>
+      </div>
+      <div class="part-info">
+        <div class="part-detail"><span>${p.section}</span></div>
+        <div class="part-detail">×<span>${p.qty}</span>本</div>
+        <div class="part-detail"><span>${p.len?p.len.toLocaleString():'—'}</span>mm</div>
+      </div>
+      <div class="stage-pipeline">${pipe}</div>
+    </div>`;
+  }).join('');
+}
+
+function setFilter(stage) {
+  state.filterStage = stage;
+  renderParts();
+}
+
+function renderQuickParts() {
+  const el = document.getElementById('quickPartsGrid');
+  el.innerHTML = QUICK_PARTS.map(q=>`
+    <div class="quick-btn" onclick="fillQuick('${q.num}','${q.section}','${q.type}',${q.len})">
+      <div class="quick-lbl">${q.type}</div>
+      <div style="font-size:11px;font-family:'Courier New',monospace;">${q.num}</div>
+      <div style="font-size:10px;color:var(--sub);margin-top:2px;">${q.section}</div>
+    </div>
+  `).join('');
+}
+
+function fillQuick(num,section,type,len) {
+  document.getElementById('addNum').value = num;
+  document.getElementById('addSection').value = section;
+  document.getElementById('addType').value = type;
+  document.getElementById('addLength').value = len;
+  document.getElementById('addNum').focus();
+}
+
+function quickScanRegister() {
+  const num = document.getElementById('quickScanInput').value.trim();
+  if (!num) { showNotify('部材番号を入力してください','warn'); return; }
+  const existing = state.parts.find(p=>p.num===num && p.project===state.currentProject);
+  if (existing) {
+    showNotify('既に登録済みです','warn');
+    showPage('list');
+    document.getElementById('searchInput').value = num;
+    renderParts();
+    return;
+  }
+  const part = {
+    id:'pt'+Date.now(), num, section:'未設定', type:'梁', qty:1, len:0,
+    stage:0, project:state.currentProject, created:Date.now(), updated:Date.now()
+  };
+  state.parts.push(part);
+  saveState();
+  document.getElementById('quickScanInput').value = '';
+  showNotify(`${num} を登録しました`);
+  render();
+}
+
+function addPart() {
+  const num = document.getElementById('addNum').value.trim();
+  const section = document.getElementById('addSection').value.trim();
+  const qty = parseInt(document.getElementById('addQty').value)||1;
+  const type = document.getElementById('addType').value;
+  const len = parseInt(document.getElementById('addLength').value)||0;
+  if (!num) { showNotify('部材番号を入力してください','warn'); return; }
+  if (!state.currentProject) { showNotify('物件を選択してください','warn'); return; }
+  const existing = state.parts.find(p=>p.num===num && p.project===state.currentProject);
+  if (existing) { showNotify('この部材番号は既に登録済みです','warn'); return; }
+  const part = {id:'pt'+Date.now(), num, section:section||'未設定', type, qty, len, stage:0, project:state.currentProject, created:Date.now(), updated:Date.now()};
+  state.parts.push(part);
+  saveState();
+  document.getElementById('addNum').value = '';
+  document.getElementById('addSection').value = '';
+  document.getElementById('addLength').value = '';
+  showNotify(`${num} を登録しました`);
+  render();
+  showPage('list');
+}
+
+function openDetail(id) {
+  const part = state.parts.find(p=>p.id===id);
+  if (!part) return;
+  const st = STAGES[part.stage];
+  const el = document.getElementById('detailContent');
+  const canAdvance = part.stage < 5;
+  const nextSt = canAdvance ? STAGES[part.stage+1] : null;
+
+  el.innerHTML = `
+    <div class="detail-num">${part.num}</div>
+    <div class="detail-beam">${part.section} × ${part.qty}本 ${part.len?'/ '+part.len.toLocaleString()+'mm':''}</div>
+    <div class="info-grid">
+      <div class="info-cell"><div class="lbl">部材種別</div><div class="val">${part.type}</div></div>
+      <div class="info-cell"><div class="lbl">現在工程</div><div class="val"><span class="stage-badge ${st.badgeClass}">${st.emoji} ${st.name}</span></div></div>
+      <div class="info-cell"><div class="lbl">登録日</div><div class="val" style="font-size:12px;">${new Date(part.created).toLocaleDateString('ja-JP')}</div></div>
+      <div class="info-cell"><div class="lbl">最終更新</div><div class="val" style="font-size:12px;">${formatTime(part.updated)}</div></div>
+    </div>
+    <div class="sec-title">工程タップで更新</div>
+    <div class="stage-list">
+      ${STAGES.map(s=>{
+        const isDone = part.stage > s.id;
+        const isCurrent = part.stage === s.id;
+        const isNext = part.stage+1 === s.id;
+        let cls = '';
+        if (isCurrent) cls='current';
+        else if (isDone) cls='done-stage';
+        else if (isNext) cls='next-stage';
+        return `<div class="stage-item ${cls}" onclick="advanceTo('${id}',${s.id})">
+          <div class="stage-icon" style="background:${isCurrent?'rgba(255,124,42,.2)':isDone?'rgba(45,204,122,.15)':isNext?'rgba(74,158,255,.1)':'var(--bg2)'}">${s.emoji}</div>
+          <div class="stage-info">
+            <div class="stage-item-name" style="color:${isCurrent?'var(--orange)':isDone?'var(--green)':isNext?'var(--steel)':'var(--sub)'}">${s.name}${isCurrent?' ← 現在':isDone?' ✓':''}${isNext?' (次工程)':''}</div>
+          </div>
+          ${isDone?`<svg class="stage-check" viewBox="0 0 24 24" style="stroke:var(--green);stroke-width:2.5;fill:none;"><polyline points="20 6 9 17 4 12"/></svg>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    <button class="btn-advance" ${!canAdvance?'disabled':''} onclick="advanceNext('${id}')">
+      ${canAdvance?`<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>次の工程へ進める → ${nextSt.name}`:'全工程完了'}
+    </button>
+    <button class="btn-secondary" onclick="closeModal('detailModal');if(confirm('この部材を削除しますか?'))deletePart('${id}')">削除</button>
+  `;
+  openModal('detailModal');
+}
+
+function advanceTo(id, stageId) {
+  const part = state.parts.find(p=>p.id===id);
+  if (!part) return;
+  if (part.stage === stageId) return;
+  const oldStage = part.stage;
+  part.stage = stageId;
+  part.updated = Date.now();
+  state.history.push({partNum:part.num, from:oldStage, to:stageId, time:Date.now()});
+  saveState();
+  showNotify(`${part.num}: ${STAGES[stageId].name} に更新`);
+  closeModal('detailModal');
+  render();
+}
+
+function advanceNext(id) {
+  const part = state.parts.find(p=>p.id===id);
+  if (!part || part.stage >= 5) return;
+  advanceTo(id, part.stage+1);
+}
+
+function deletePart(id) {
+  state.parts = state.parts.filter(p=>p.id!==id);
+  saveState();
+  showNotify('部材を削除しました','warn');
+  render();
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  document.getElementById('fabBtn').style.display = name==='add'?'none':'flex';
+}
+
+function openAddModal() {
+  showPage('add');
+  document.getElementById('addNum').focus();
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(el=>{
+  el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); });
+});
+
+document.getElementById('projectBtn').onclick = () => {
+  renderProjectList();
+  openModal('projectModal');
+};
+
+function renderProjectList() {
+  const el = document.getElementById('projList');
+  el.innerHTML = state.projects.map(proj=>{
+    const cnt = state.parts.filter(p=>p.project===proj.id).length;
+    return `<div class="proj-item ${proj.id===state.currentProject?'active-proj':''}" onclick="selectProject('${proj.id}')">
+      <div class="proj-dot" style="background:var(--${proj.color||'steel'})"></div>
+      <div class="proj-name">${proj.name}</div>
+      <div class="proj-count">${cnt}部材</div>
+      ${proj.id===state.currentProject?'<div class="proj-check">✓</div>':''}
+    </div>`;
+  }).join('');
+}
+
+function selectProject(id) {
+  state.currentProject = id;
+  saveState();
+  closeModal('projectModal');
+  render();
+}
+
+function addProject() {
+  const name = document.getElementById('newProjectName').value.trim();
+  if (!name) return;
+  const colors = ['steel','orange','green','yellow','teal','purple'];
+  const proj = {id:'p'+Date.now(), name, color: colors[state.projects.length % colors.length]};
+  state.projects.push(proj);
+  state.currentProject = proj.id;
+  document.getElementById('newProjectName').value = '';
+  saveState();
+  renderProjectList();
+  render();
+  showNotify(`${name} を作成しました`);
+}
+
+let notifyTimer;
+function showNotify(msg, type='') {
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.className = 'notify show' + (type==='warn'?' warn':'');
+  clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+loadState();
+</script>
+</body>
+</html>
