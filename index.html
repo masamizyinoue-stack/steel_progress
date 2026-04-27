@@ -3,920 +3,865 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>手書き文字認識</title>
+<title>手書き認識 - Tesseract版</title>
 <style>
-:root {
-  --bg:      #0c0e14;
-  --bg2:     #13161f;
-  --bg3:     #1a1e2a;
-  --bg4:     #222636;
-  --border:  #2c3147;
-  --border2: #3d4460;
-  --text:    #dde2f0;
-  --sub:     #6b748f;
-  --ink:     #7eb8ff;
-  --ink2:    #4a9eff;
-  --gold:    #f5c842;
-  --green:   #3ddba0;
-  --red:     #ff5f5f;
-  --r:       12px;
+:root{
+  --bg:#f5f3ef;--bg2:#ffffff;--bg3:#f0ede8;--bg4:#e8e4dc;
+  --border:#d4cfc6;--border2:#b8b2a8;
+  --text:#1a1810;--sub:#7a7268;
+  --ink:#1e4a8a;--ink2:#2563b8;--ink3:#d4e4f7;
+  --orange:#c45a00;--orange2:#fff3e6;
+  --green:#1a6b3c;--green2:#e8f5ee;
+  --red:#b32020;--red2:#fdeaea;
+  --yellow:#8a6000;--yellow2:#fffae6;
+  --r:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP','Hiragino Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP','Hiragino Sans',sans-serif;min-height:100vh;}
 
 /* ===== HEADER ===== */
 header{
-  background:var(--bg2);
-  border-bottom:1px solid var(--border);
-  padding:14px 20px;
+  background:var(--ink);color:white;
+  padding:12px 18px;
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:50;
 }
-.logo{display:flex;align-items:center;gap:10px;}
-.logo-mark{
+.header-left{display:flex;align-items:center;gap:10px;}
+.logo-icon{
   width:34px;height:34px;border-radius:8px;
-  background:linear-gradient(135deg,#2a4a7f,var(--ink2));
+  background:rgba(255,255,255,.2);
   display:flex;align-items:center;justify-content:center;
 }
-.logo-mark svg{width:18px;height:18px;fill:white;}
-.logo h1{font-size:15px;font-weight:700;letter-spacing:.04em;}
-.logo h1 span{color:var(--ink);font-size:11px;font-weight:400;margin-left:6px;}
-.history-btn{
-  background:transparent;border:1px solid var(--border);
-  border-radius:8px;padding:6px 12px;color:var(--sub);
-  font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;
+.logo-icon svg{width:18px;height:18px;fill:white;}
+.header-title{font-size:15px;font-weight:700;}
+.header-badge{
+  font-size:10px;background:rgba(255,255,255,.2);
+  padding:2px 8px;border-radius:10px;margin-left:6px;
+  letter-spacing:.04em;
 }
-.history-btn svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;}
+.offline-badge{
+  display:flex;align-items:center;gap:5px;
+  font-size:11px;color:rgba(255,255,255,.85);
+}
+.offline-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;}
 
 /* ===== MAIN ===== */
-main{flex:1;padding:20px 16px 100px;max-width:680px;margin:0 auto;width:100%;}
+main{padding:16px;max-width:680px;margin:0 auto;padding-bottom:30px;}
+
+/* ===== CARD ===== */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;}
+.card-head{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg3);
+}
+.card-head h2{font-size:13px;font-weight:700;color:var(--text);}
+.step-num{
+  width:22px;height:22px;border-radius:50%;
+  background:var(--ink);color:white;
+  font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.card-body{padding:16px;}
 
 /* ===== MODE TABS ===== */
-.mode-tabs{display:flex;background:var(--bg3);border-radius:10px;padding:4px;gap:4px;margin-bottom:20px;}
+.mode-tabs{display:flex;gap:6px;margin-bottom:0;}
 .mode-tab{
-  flex:1;padding:9px;border:none;border-radius:7px;
-  background:transparent;color:var(--sub);font-size:13px;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  gap:6px;transition:all .2s;font-weight:500;
+  flex:1;padding:8px 6px;border-radius:7px;
+  border:1.5px solid var(--border);background:var(--bg3);
+  color:var(--sub);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  font-weight:600;transition:all .15s;
 }
-.mode-tab svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;}
-.mode-tab.active{background:var(--bg4);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.mode-tab svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;}
+.mode-tab.active{background:var(--ink3);border-color:var(--ink2);color:var(--ink);}
 
-/* ===== UPLOAD ZONE ===== */
+/* ===== UPLOAD ===== */
 .upload-zone{
-  border:2px dashed var(--border2);
-  border-radius:var(--r);
-  padding:32px 20px;
-  text-align:center;
-  cursor:pointer;
-  transition:all .2s;
-  position:relative;
-  overflow:hidden;
-  margin-bottom:16px;
+  border:2px dashed var(--border2);border-radius:8px;
+  padding:28px 16px;text-align:center;cursor:pointer;
+  transition:all .2s;position:relative;background:var(--bg3);
+  margin-bottom:10px;
 }
-.upload-zone:hover,.upload-zone.dragover{border-color:var(--ink2);background:rgba(74,158,255,.05);}
-.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;}
-.upload-icon{
-  width:56px;height:56px;border-radius:50%;
-  background:rgba(74,158,255,.12);
-  display:flex;align-items:center;justify-content:center;
-  margin:0 auto 12px;
+.upload-zone:hover,.upload-zone.drag{border-color:var(--ink2);background:var(--ink3);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-zone svg{width:32px;height:32px;stroke:var(--ink2);stroke-width:1.5;fill:none;margin-bottom:8px;}
+.upload-zone p{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:3px;}
+.upload-zone small{font-size:11px;color:var(--sub);}
+.cam-btn{
+  width:100%;padding:10px;border-radius:8px;
+  background:var(--bg3);border:1.5px solid var(--border);
+  color:var(--text);font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  font-weight:600;transition:all .15s;
 }
-.upload-icon svg{width:26px;height:26px;stroke:var(--ink);stroke-width:1.8;fill:none;}
-.upload-title{font-size:15px;font-weight:600;margin-bottom:6px;}
-.upload-sub{font-size:12px;color:var(--sub);}
-.upload-or{
-  display:flex;align-items:center;gap:12px;
-  margin:12px 0;color:var(--sub);font-size:12px;
-}
-.upload-or::before,.upload-or::after{content:'';flex:1;height:1px;background:var(--border);}
-
-/* ===== CAMERA BUTTON ===== */
-.camera-btn{
-  width:100%;padding:12px;border-radius:10px;
-  background:var(--bg3);border:1px solid var(--border);
-  color:var(--text);font-size:14px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  transition:all .15s;
-}
-.camera-btn:hover{border-color:var(--ink2);}
-.camera-btn svg{width:18px;height:18px;stroke:var(--ink);stroke-width:2;fill:none;}
+.cam-btn:hover{border-color:var(--ink2);color:var(--ink);}
+.cam-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;}
 
 /* ===== PREVIEW ===== */
-.preview-wrap{
-  position:relative;border-radius:var(--r);overflow:hidden;
-  background:var(--bg3);border:1px solid var(--border);
-  margin-bottom:16px;
+.preview-area{display:none;margin-top:12px;}
+.preview-img-wrap{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--bg3);margin-bottom:8px;}
+.preview-img-wrap img{width:100%;display:block;max-height:280px;object-fit:contain;}
+.preview-btns{display:flex;gap:6px;}
+.prev-btn{
+  flex:1;padding:7px;border-radius:7px;
+  border:1px solid var(--border);background:var(--bg3);
+  color:var(--sub);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:5px;
 }
-.preview-wrap img{width:100%;display:block;max-height:320px;object-fit:contain;}
-.preview-controls{
-  display:flex;justify-content:space-between;
-  padding:10px 12px;background:var(--bg2);border-top:1px solid var(--border);
-}
-.preview-controls button{
-  background:transparent;border:1px solid var(--border);
-  border-radius:7px;padding:6px 14px;color:var(--sub);
-  font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;
-}
-.preview-controls button svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;}
+.prev-btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;}
+.prev-btn:hover{border-color:var(--border2);}
 
-/* ===== OPTIONS ===== */
-.options-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
-.opt-chip{
-  padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;
-  border:1px solid var(--border);background:var(--bg3);color:var(--sub);
-  transition:all .15s;white-space:nowrap;
+/* ===== CANVAS ===== */
+.canvas-area{display:none;}
+.canvas-frame{
+  border-radius:8px;overflow:hidden;
+  border:1.5px solid var(--border2);
+  background:white;margin-bottom:8px;
+  touch-action:none;cursor:crosshair;
+  position:relative;
 }
-.opt-chip.active{background:rgba(74,158,255,.15);border-color:var(--ink2);color:var(--ink);}
-
-/* ===== RECOGNIZE BUTTON ===== */
-.rec-btn{
-  width:100%;padding:15px;border-radius:12px;
-  background:var(--ink2);border:none;
-  color:white;font-size:15px;font-weight:700;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
-  transition:all .15s;letter-spacing:.02em;
-}
-.rec-btn:hover{background:#3a8eef;}
-.rec-btn:active{transform:scale(.98);}
-.rec-btn:disabled{background:var(--bg4);color:var(--sub);cursor:default;transform:none;}
-.rec-btn svg{width:18px;height:18px;stroke:white;stroke-width:2.5;fill:none;}
-
-/* ===== LOADING ===== */
-.loading-wrap{
-  background:var(--bg2);border:1px solid var(--border);
-  border-radius:var(--r);padding:30px 20px;text-align:center;
-  margin-top:20px;display:none;
-}
-.loading-wrap.show{display:block;}
-.loading-dots{display:flex;justify-content:center;gap:8px;margin-bottom:16px;}
-.dot{
-  width:10px;height:10px;border-radius:50%;
-  background:var(--ink2);animation:pulse 1.2s infinite;
-}
-.dot:nth-child(2){animation-delay:.2s;}
-.dot:nth-child(3){animation-delay:.4s;}
-@keyframes pulse{0%,80%,100%{opacity:.2;transform:scale(.8);}40%{opacity:1;transform:scale(1);}}
-.loading-msg{font-size:14px;color:var(--sub);}
-.loading-progress{
-  width:60%;height:3px;background:var(--border);border-radius:2px;
-  margin:12px auto 0;overflow:hidden;
-}
-.loading-bar{
-  height:100%;background:var(--ink2);border-radius:2px;
-  width:0%;animation:progress 3s ease-in-out forwards;
-}
-@keyframes progress{0%{width:0%;}60%{width:70%;}90%{width:88%;}100%{width:92%;}}
-
-/* ===== RESULT ===== */
-.result-wrap{
-  background:var(--bg2);border:1px solid var(--border);
-  border-radius:var(--r);margin-top:20px;overflow:hidden;
-  animation:fadeUp .3s ease;
-}
-@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-.result-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px;border-bottom:1px solid var(--border);
-  background:rgba(74,158,255,.05);
-}
-.result-title{
-  display:flex;align-items:center;gap:8px;
-  font-size:13px;font-weight:600;color:var(--ink);
-}
-.result-title svg{width:16px;height:16px;stroke:var(--ink);stroke-width:2;fill:none;}
-.result-actions{display:flex;gap:6px;}
-.action-btn{
-  background:transparent;border:1px solid var(--border);
-  border-radius:7px;padding:5px 12px;color:var(--sub);
-  font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;
-  transition:all .15s;
-}
-.action-btn:hover{border-color:var(--ink2);color:var(--ink);}
-.action-btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;}
-.action-btn.copied{border-color:var(--green);color:var(--green);}
-.result-text{
-  padding:20px;font-size:16px;line-height:1.9;
-  white-space:pre-wrap;word-break:break-all;
-  min-height:80px;
-}
-.result-text-editable{
-  width:100%;background:transparent;border:none;
-  color:var(--text);font-size:16px;line-height:1.9;
-  resize:vertical;min-height:80px;outline:none;
-  padding:20px;font-family:inherit;
-}
-.result-footer{
-  padding:10px 16px;border-top:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-}
-.char-count{font-size:11px;color:var(--sub);}
-.confidence{
-  display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);
-}
-.conf-bar{width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
-.conf-fill{height:100%;border-radius:2px;background:var(--green);}
-
-/* ===== DRAW MODE ===== */
-.canvas-wrap{
-  background:white;border-radius:var(--r);
-  border:2px solid var(--border2);overflow:hidden;
-  margin-bottom:16px;position:relative;touch-action:none;
-  cursor:crosshair;
-}
-canvas{display:block;width:100%;touch-action:none;}
-.canvas-toolbar{
-  display:flex;align-items:center;gap:8px;
-  padding:10px 12px;background:var(--bg2);
-  border-top:1px solid var(--border);flex-wrap:wrap;
-}
-.tool-btn{
-  width:34px;height:34px;border-radius:7px;
-  background:var(--bg3);border:1px solid var(--border);
-  color:var(--text);cursor:pointer;
+canvas{display:block;width:100%;}
+.canvas-guide{
+  position:absolute;inset:0;pointer-events:none;
   display:flex;align-items:center;justify-content:center;
-  transition:all .15s;
+  font-size:13px;color:rgba(0,0,0,.25);letter-spacing:.05em;
 }
-.tool-btn:hover,.tool-btn.active{border-color:var(--ink2);background:rgba(74,158,255,.1);}
-.tool-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;}
-.pen-sizes{display:flex;gap:4px;}
-.pen-size{
-  width:28px;height:28px;border-radius:6px;
-  background:var(--bg3);border:1px solid var(--border);
+.c-toolbar{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:8px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;
+}
+.c-tool{
+  width:32px;height:32px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;color:var(--text);
+}
+.c-tool.active{background:var(--ink3);border-color:var(--ink2);color:var(--ink);}
+.c-tool svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;}
+.sz-btns{display:flex;gap:4px;}
+.sz-btn{
+  width:30px;height:30px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg2);
   cursor:pointer;display:flex;align-items:center;justify-content:center;
   transition:all .15s;
 }
-.pen-size.active{border-color:var(--ink2);}
-.pen-dot{background:#222;border-radius:50%;}
-.separator{width:1px;height:24px;background:var(--border);margin:0 2px;}
+.sz-btn.active{background:var(--ink3);border-color:var(--ink2);}
+.sz-dot{border-radius:50%;background:var(--text);}
+.c-sep{width:1px;height:22px;background:var(--border);margin:0 2px;}
 
-/* ===== HISTORY DRAWER ===== */
-.drawer-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
-  opacity:0;pointer-events:none;transition:opacity .2s;
+/* ===== PREPROCESS ===== */
+.preprocess-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.pp-item label{font-size:11px;color:var(--sub);font-weight:600;display:block;margin-bottom:5px;}
+.pp-item input[type=range]{width:100%;accent-color:var(--ink2);}
+.pp-value{font-size:11px;color:var(--ink);font-weight:700;margin-left:6px;}
+.toggle-row{display:flex;align-items:center;gap:8px;padding:6px 0;}
+.toggle-row label{font-size:12px;font-weight:600;flex:1;}
+.toggle{
+  position:relative;width:38px;height:21px;cursor:pointer;
 }
-.drawer-overlay.open{opacity:1;pointer-events:all;}
-.drawer{
-  position:fixed;right:0;top:0;bottom:0;width:min(340px,90vw);
-  background:var(--bg2);border-left:1px solid var(--border);
-  z-index:101;transform:translateX(100%);transition:transform .25s ease;
-  display:flex;flex-direction:column;
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{
+  position:absolute;inset:0;background:var(--border2);
+  border-radius:21px;transition:.2s;
 }
-.drawer-overlay.open .drawer{transform:translateX(0);}
-.drawer-header{
-  padding:16px;border-bottom:1px solid var(--border);
+.toggle-slider::before{
+  content:'';position:absolute;width:17px;height:17px;
+  left:2px;bottom:2px;background:white;
+  border-radius:50%;transition:.2s;
+}
+.toggle input:checked+.toggle-slider{background:var(--ink2);}
+.toggle input:checked+.toggle-slider::before{transform:translateX(17px);}
+.preview-processed{
+  display:none;border-radius:7px;overflow:hidden;
+  border:1px solid var(--border);margin-top:10px;
+}
+.preview-processed canvas{width:100%;display:block;max-height:180px;object-fit:contain;}
+
+/* ===== LANGUAGE ===== */
+.lang-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.lang-chip{
+  padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;
+  border:1.5px solid var(--border);background:var(--bg3);
+  color:var(--sub);font-weight:600;transition:all .15s;
+}
+.lang-chip.active{background:var(--ink3);border-color:var(--ink2);color:var(--ink);}
+
+/* ===== REC BUTTON ===== */
+.rec-btn{
+  width:100%;padding:14px;border-radius:10px;
+  background:var(--ink);border:none;
+  color:white;font-size:15px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all .15s;letter-spacing:.03em;
+  box-shadow:0 2px 8px rgba(30,74,138,.3);
+}
+.rec-btn:hover{background:var(--ink2);}
+.rec-btn:active{transform:scale(.98);}
+.rec-btn:disabled{background:var(--border2);color:white;cursor:default;box-shadow:none;transform:none;}
+.rec-btn svg{width:18px;height:18px;stroke:white;stroke-width:2.5;fill:none;}
+
+/* ===== PROGRESS ===== */
+.progress-wrap{
+  display:none;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px;margin-bottom:14px;
+}
+.progress-wrap.show{display:block;}
+.prog-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.prog-label{font-size:13px;font-weight:700;}
+.prog-pct{font-size:13px;font-weight:700;color:var(--ink2);}
+.prog-track{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:10px;}
+.prog-fill{height:100%;background:var(--ink2);border-radius:4px;transition:width .3s ease;width:0%;}
+.prog-status{font-size:12px;color:var(--sub);}
+.prog-stages{display:flex;gap:4px;margin-top:12px;}
+.prog-stage{
+  flex:1;padding:5px 4px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg3);
+  font-size:10px;text-align:center;color:var(--sub);
+  transition:all .2s;
+}
+.prog-stage.done{background:var(--green2);border-color:var(--green);color:var(--green);}
+.prog-stage.current{background:var(--ink3);border-color:var(--ink2);color:var(--ink);font-weight:700;}
+
+/* ===== RESULT ===== */
+.result-card{
+  display:none;background:var(--bg2);border:1.5px solid var(--green);
+  border-radius:var(--r);margin-bottom:14px;overflow:hidden;
+}
+.result-head{
+  padding:10px 14px;background:var(--green2);
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.result-head-left{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--green);}
+.result-head-left svg{width:16px;height:16px;stroke:var(--green);stroke-width:2.5;fill:none;}
+.result-btns{display:flex;gap:5px;}
+.r-btn{
+  padding:5px 12px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg2);
+  color:var(--sub);font-size:11px;cursor:pointer;
+  display:flex;align-items:center;gap:4px;font-weight:600;
+  transition:all .15s;
+}
+.r-btn:hover{border-color:var(--border2);}
+.r-btn svg{width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;}
+.r-btn.copied{border-color:var(--green);color:var(--green);}
+textarea.result-ta{
+  width:100%;background:white;border:none;
+  color:var(--text);font-size:16px;line-height:1.85;
+  resize:none;outline:none;padding:16px;
+  font-family:inherit;min-height:80px;
+}
+.result-foot{
+  padding:8px 14px;background:var(--bg3);border-top:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
 }
-.drawer-header h2{font-size:15px;font-weight:700;}
-.close-btn{
-  background:transparent;border:none;color:var(--sub);
-  cursor:pointer;padding:4px;
+.conf-wrap{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);}
+.conf-bar{width:50px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.conf-fill{height:100%;border-radius:2px;transition:width .5s;}
+
+/* ===== INFO BANNER ===== */
+.info-banner{
+  background:var(--yellow2);border:1px solid #f0d060;
+  border-radius:8px;padding:10px 14px;
+  display:flex;align-items:flex-start;gap:8px;
+  font-size:12px;color:var(--yellow);margin-bottom:14px;
+  line-height:1.6;
 }
-.close-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;}
-.drawer-list{flex:1;overflow-y:auto;padding:12px;}
-.hist-card{
-  background:var(--bg3);border:1px solid var(--border);
-  border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer;
-  transition:border-color .15s;
-}
-.hist-card:hover{border-color:var(--border2);}
-.hist-thumb{
-  width:100%;height:80px;object-fit:cover;
-  border-radius:7px;margin-bottom:8px;
-}
-.hist-text-preview{
-  font-size:13px;line-height:1.6;color:var(--text);
-  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  margin-bottom:6px;
-}
-.hist-meta{font-size:11px;color:var(--sub);}
-.hist-empty{text-align:center;padding:40px 20px;color:var(--sub);}
+.info-banner svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0;margin-top:1px;}
 
 /* ===== NOTIFY ===== */
 .notify{
-  position:fixed;top:70px;left:50%;
-  transform:translateX(-50%) translateY(-10px);
-  background:var(--green);color:white;
-  padding:10px 20px;border-radius:20px;
-  font-size:13px;font-weight:600;z-index:200;
+  position:fixed;top:66px;left:50%;
+  transform:translateX(-50%) translateY(-8px);
+  background:var(--ink);color:white;
+  padding:9px 18px;border-radius:18px;
+  font-size:12px;font-weight:600;z-index:200;
   opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap;
+  box-shadow:0 4px 16px rgba(0,0,0,.2);
 }
 .notify.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .notify.err{background:var(--red);}
-
-/* ===== UTIL ===== */
-.sec-label{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--sub);text-transform:uppercase;margin-bottom:8px;}
-.gap{height:16px;}
+.notify.ok{background:var(--green);}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    <div class="logo-mark">
-      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+  <div class="header-left">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
     </div>
-    <h1>手書き認識 <span>AI-OCR</span></h1>
+    <div>
+      <div class="header-title">手書き文字認識 <span class="header-badge">Tesseract版</span></div>
+    </div>
   </div>
-  <button class="history-btn" onclick="openDrawer()">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    履歴
-  </button>
+  <div class="offline-badge">
+    <div class="offline-dot"></div>
+    AI不要・オフライン動作
+  </div>
 </header>
 
 <main>
 
-  <!-- MODE TABS -->
-  <div class="mode-tabs">
-    <button class="mode-tab active" id="tab-upload" onclick="setMode('upload')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="3 9 21 9"/><polyline points="9 21 9 9"/></svg>
-      写真読み込み
-    </button>
-    <button class="mode-tab" id="tab-draw" onclick="setMode('draw')">
-      <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-      手書き入力
-    </button>
+  <!-- INFO -->
+  <div class="info-banner">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div>
+      <b>初回のみ</b>言語データをダウンロードします（日本語 約36MB、英語 約10MB）。2回目以降はブラウザキャッシュから読み込むため高速です。<br>
+      <b>印刷文字・丁寧な手書き</b>で精度が上がります。崩し字は認識が難しい場合があります。
+    </div>
   </div>
 
-  <!-- ===== UPLOAD MODE ===== -->
-  <div id="mode-upload">
-    <div class="sec-label">画像を選択</div>
-
-    <!-- Upload Zone -->
-    <div class="upload-zone" id="uploadZone">
-      <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])">
-      <div class="upload-icon">
-        <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
-      </div>
-      <div class="upload-title">画像をドラッグ＆ドロップ</div>
-      <div class="upload-sub">または クリックして選択</div>
-      <div class="upload-or">または</div>
+  <!-- STEP 1: 入力 -->
+  <div class="card">
+    <div class="card-head">
+      <div class="step-num">1</div>
+      <h2>画像・手書きを入力</h2>
     </div>
-
-    <button class="camera-btn" onclick="openCamera()">
-      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      カメラで撮影する
-    </button>
-    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this.files[0])">
-
-    <div class="gap"></div>
-
-    <!-- Preview -->
-    <div class="preview-wrap" id="previewWrap" style="display:none">
-      <img id="previewImg" src="" alt="preview">
-      <div class="preview-controls">
-        <button onclick="clearImage()">
-          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-          クリア
+    <div class="card-body">
+      <div class="mode-tabs" style="margin-bottom:12px;">
+        <button class="mode-tab active" id="tab-upload" onclick="setMode('upload')">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="3 9 21 9"/><polyline points="9 21 9 9"/></svg>
+          写真・ファイル
         </button>
-        <button onclick="rotateImage()">
-          <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
-          回転
+        <button class="mode-tab" id="tab-draw" onclick="setMode('draw')">
+          <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+          手書き入力
         </button>
       </div>
-    </div>
 
-    <!-- Options -->
-    <div class="sec-label">認識オプション</div>
-    <div class="options-row">
-      <div class="opt-chip active" id="opt-jp" onclick="toggleOpt('jp')">🇯🇵 日本語</div>
-      <div class="opt-chip" id="opt-en" onclick="toggleOpt('en')">🇺🇸 英語</div>
-      <div class="opt-chip active" id="opt-num" onclick="toggleOpt('num')">🔢 数字・記号</div>
-      <div class="opt-chip" id="opt-table" onclick="toggleOpt('table')">📊 表・リスト</div>
-      <div class="opt-chip" id="opt-steel" onclick="toggleOpt('steel')">🔩 鉄骨記号</div>
-    </div>
-
-    <button class="rec-btn" id="recBtn" onclick="recognize()" disabled>
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      文字を認識する
-    </button>
-  </div>
-
-  <!-- ===== DRAW MODE ===== -->
-  <div id="mode-draw" style="display:none">
-    <div class="sec-label">ここに手書きで文字を書いてください</div>
-    <div class="canvas-wrap">
-      <canvas id="drawCanvas"></canvas>
-      <div class="canvas-toolbar">
-        <div class="pen-sizes">
-          <div class="pen-size active" id="size1" onclick="setPenSize(2,'size1')"><div class="pen-dot" style="width:4px;height:4px"></div></div>
-          <div class="pen-size" id="size2" onclick="setPenSize(4,'size2')"><div class="pen-dot" style="width:7px;height:7px"></div></div>
-          <div class="pen-size" id="size3" onclick="setPenSize(7,'size3')"><div class="pen-dot" style="width:11px;height:11px"></div></div>
+      <!-- UPLOAD AREA -->
+      <div id="uploadArea">
+        <div class="upload-zone" id="dropZone">
+          <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])">
+          <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+          <p>タップして写真を選択</p>
+          <small>またはドラッグ＆ドロップ（JPEG / PNG / GIF）</small>
         </div>
-        <div class="separator"></div>
-        <button class="tool-btn" title="消しゴム" id="eraserBtn" onclick="toggleEraser()">
-          <svg viewBox="0 0 24 24"><path d="M20 20H7L3 16l11-11 6 6-6.5 6.5"/><path d="M6.0 11.0 L13 18"/></svg>
+        <button class="cam-btn" style="margin-top:8px;" onclick="document.getElementById('camInput').click()">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          カメラで今すぐ撮影する
         </button>
-        <button class="tool-btn" title="全消去" onclick="clearCanvas()">
-          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-        </button>
-        <button class="tool-btn" title="元に戻す" onclick="undoCanvas()">
-          <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
-        </button>
-        <div class="separator"></div>
-        <span style="font-size:11px;color:var(--sub);margin-left:2px;">ペン色:</span>
-        <input type="color" id="penColor" value="#000000" style="width:28px;height:28px;border:none;border-radius:5px;cursor:pointer;padding:2px;background:var(--bg3);">
+        <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this.files[0])">
+
+        <div class="preview-area" id="previewArea">
+          <div class="preview-img-wrap">
+            <img id="previewImg" src="" alt="preview">
+          </div>
+          <div class="preview-btns">
+            <button class="prev-btn" onclick="rotatePreview()">
+              <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+              回転
+            </button>
+            <button class="prev-btn" onclick="clearInput()">
+              <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+              クリア
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DRAW AREA -->
+      <div class="canvas-area" id="drawArea">
+        <div class="canvas-frame">
+          <canvas id="drawCanvas"></canvas>
+          <div class="canvas-guide" id="canvasGuide">ここに文字を書いてください</div>
+        </div>
+        <div class="c-toolbar">
+          <div class="sz-btns">
+            <div class="sz-btn active" id="sz1" onclick="setSz(2,'sz1')"><div class="sz-dot" style="width:4px;height:4px"></div></div>
+            <div class="sz-btn" id="sz2" onclick="setSz(5,'sz2')"><div class="sz-dot" style="width:8px;height:8px"></div></div>
+            <div class="sz-btn" id="sz3" onclick="setSz(9,'sz3')"><div class="sz-dot" style="width:13px;height:13px"></div></div>
+          </div>
+          <div class="c-sep"></div>
+          <div class="c-tool" id="eraserTool" title="消しゴム" onclick="toggleEraser()">
+            <svg viewBox="0 0 24 24"><path d="M20 20H7L3 16l11-11 6 6-6.5 6.5"/><path d="M6 11l7 7"/></svg>
+          </div>
+          <div class="c-tool" title="元に戻す" onclick="undo()">
+            <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+          </div>
+          <div class="c-tool" title="全消去" onclick="clearDraw()">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H8L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </div>
+          <div class="c-sep"></div>
+          <span style="font-size:11px;color:var(--sub)">色:</span>
+          <input type="color" id="penColor" value="#000000" style="width:28px;height:28px;border:none;border-radius:5px;cursor:pointer;padding:2px;background:var(--bg3);">
+        </div>
       </div>
     </div>
-
-    <div class="options-row">
-      <div class="opt-chip active" id="dopt-jp" onclick="toggleDOpt('jp')">🇯🇵 日本語</div>
-      <div class="opt-chip" id="dopt-en" onclick="toggleDOpt('en')">🇺🇸 英語</div>
-      <div class="opt-chip active" id="dopt-num" onclick="toggleDOpt('num')">🔢 数字</div>
-      <div class="opt-chip" id="dopt-steel" onclick="toggleDOpt('steel')">🔩 鉄骨記号</div>
-    </div>
-
-    <button class="rec-btn" onclick="recognizeCanvas()">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      手書き文字を認識する
-    </button>
   </div>
 
-  <!-- LOADING -->
-  <div class="loading-wrap" id="loadingWrap">
-    <div class="loading-dots">
-      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+  <!-- STEP 2: 前処理 -->
+  <div class="card">
+    <div class="card-head">
+      <div class="step-num">2</div>
+      <h2>画像補正（精度向上）</h2>
     </div>
-    <div class="loading-msg" id="loadingMsg">AIが文字を解析中...</div>
-    <div class="loading-progress"><div class="loading-bar" id="loadingBar"></div></div>
+    <div class="card-body">
+      <div class="preprocess-grid">
+        <div class="pp-item">
+          <label>明るさ <span class="pp-value" id="brightVal">0</span></label>
+          <input type="range" id="bright" min="-100" max="100" value="0" oninput="updatePP()">
+        </div>
+        <div class="pp-item">
+          <label>コントラスト <span class="pp-value" id="contrastVal">0</span></label>
+          <input type="range" id="contrast" min="-100" max="100" value="0" oninput="updatePP()">
+        </div>
+        <div class="pp-item">
+          <label>シャープ <span class="pp-value" id="sharpVal">0</span></label>
+          <input type="range" id="sharp" min="0" max="5" value="0" step="1" oninput="updatePP()">
+        </div>
+        <div class="pp-item">
+          <label>スケール <span class="pp-value" id="scaleVal">1.0x</span></label>
+          <input type="range" id="scale" min="1" max="4" value="2" step="0.5" oninput="updatePP()">
+        </div>
+      </div>
+      <div class="toggle-row">
+        <label>グレースケール変換（推奨）</label>
+        <label class="toggle"><input type="checkbox" id="togGray" checked><div class="toggle-slider"></div></label>
+      </div>
+      <div class="toggle-row">
+        <label>二値化（白黒にする）</label>
+        <label class="toggle"><input type="checkbox" id="togBin"><div class="toggle-slider"></div></label>
+      </div>
+      <div class="toggle-row">
+        <label>ノイズ除去</label>
+        <label class="toggle"><input type="checkbox" id="togDenoise"><div class="toggle-slider"></div></label>
+      </div>
+      <div class="preview-processed" id="ppPreview">
+        <canvas id="ppCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: 言語 -->
+  <div class="card">
+    <div class="card-head">
+      <div class="step-num">3</div>
+      <h2>認識言語を選択</h2>
+    </div>
+    <div class="card-body">
+      <div class="lang-chips">
+        <div class="lang-chip active" id="lc-jpn" onclick="toggleLang('jpn')">🇯🇵 日本語</div>
+        <div class="lang-chip active" id="lc-eng" onclick="toggleLang('eng')">🇺🇸 英語</div>
+        <div class="lang-chip" id="lc-jpn_vert" onclick="toggleLang('jpn_vert')">🗒 縦書き</div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--sub);line-height:1.7;">
+        ※ 日本語＋英語の同時認識が最も汎用的です。<br>
+        縦書きのメモ・手紙などは「縦書き」を追加してください。
+      </div>
+    </div>
+  </div>
+
+  <!-- REC BUTTON -->
+  <button class="rec-btn" id="recBtn" onclick="startOCR()" disabled>
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    文字を認識する
+  </button>
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="prog-head">
+      <div class="prog-label" id="progLabel">準備中...</div>
+      <div class="prog-pct" id="progPct">0%</div>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+    <div class="prog-status" id="progStatus">言語データを読み込み中...</div>
+    <div class="prog-stages">
+      <div class="prog-stage" id="stg-load">読込</div>
+      <div class="prog-stage" id="stg-init">初期化</div>
+      <div class="prog-stage" id="stg-layout">解析</div>
+      <div class="prog-stage" id="stg-recog">認識</div>
+      <div class="prog-stage" id="stg-done">完了</div>
+    </div>
   </div>
 
   <!-- RESULT -->
-  <div class="result-wrap" id="resultWrap" style="display:none">
-    <div class="result-header">
-      <div class="result-title">
+  <div class="result-card" id="resultCard">
+    <div class="result-head">
+      <div class="result-head-left">
         <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-        認識結果
+        認識完了
       </div>
-      <div class="result-actions">
-        <button class="action-btn" id="copyBtn" onclick="copyResult()">
+      <div class="result-btns">
+        <button class="r-btn" id="copyBtn" onclick="copyResult()">
           <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           コピー
         </button>
-        <button class="action-btn" onclick="editResult()">
+        <button class="r-btn" onclick="toggleEdit()">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           編集
         </button>
       </div>
     </div>
-    <textarea class="result-text-editable" id="resultTextArea" readonly></textarea>
-    <div class="result-footer">
-      <div class="char-count" id="charCount">0 文字</div>
-      <div class="confidence">
-        精度
+    <textarea class="result-ta" id="resultTA" readonly placeholder="認識結果がここに表示されます..."></textarea>
+    <div class="result-foot">
+      <span style="font-size:11px;color:var(--sub);" id="charCount">0 文字</span>
+      <div class="conf-wrap">
+        信頼度
         <div class="conf-bar"><div class="conf-fill" id="confFill" style="width:0%"></div></div>
-        <span id="confVal">—</span>
+        <span id="confVal" style="font-size:11px;font-weight:700;">—</span>
       </div>
     </div>
   </div>
 
 </main>
 
-<!-- HISTORY DRAWER -->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()">
-  <div class="drawer" onclick="e=>e.stopPropagation()">
-    <div class="drawer-header">
-      <h2>認識履歴</h2>
-      <button class="close-btn" onclick="closeDrawer()">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="drawer-list" id="drawerList"></div>
-  </div>
-</div>
-
-<!-- NOTIFY -->
 <div class="notify" id="notify"></div>
 
+<!-- Tesseract.js (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+
 <script>
-// ====== STATE ======
-const state = {
-  mode: 'upload',
-  imageData: null,
-  rotateAngle: 0,
-  options: {jp:true, en:false, num:true, table:false, steel:false},
-  doptions: {jp:true, en:false, num:true, steel:false},
-  history: [],
-  isLoading: false,
-  penSize: 2,
-  eraser: false,
+// ===== STATE =====
+const S = {
+  mode:'upload', imgData:null, rotAngle:0,
+  langs: new Set(['jpn','eng']),
+  drawing:false, penSz:2, eraser:false,
+  processing:false,
 };
-let canvasHistory = [];
+let drawHistory=[], worker=null;
 
-// ====== INIT ======
-window.addEventListener('load', () => {
-  loadHistory();
-  initCanvas();
-  initDragDrop();
+// ===== INIT =====
+window.addEventListener('load',()=>{
+  initDraw();
+  initDrop();
+  // Pre-check Tesseract loaded
+  if(typeof Tesseract==='undefined'){
+    showNotify('Tesseract.jsの読み込みに失敗しました。ネット接続を確認してください。','err');
+  }
 });
 
-// ====== MODE ======
-function setMode(m) {
-  state.mode = m;
-  document.getElementById('mode-upload').style.display = m==='upload'?'block':'none';
-  document.getElementById('mode-draw').style.display = m==='draw'?'block':'none';
-  document.getElementById('tab-upload').classList.toggle('active', m==='upload');
-  document.getElementById('tab-draw').classList.toggle('active', m==='draw');
-  hideResult();
+// ===== MODE =====
+function setMode(m){
+  S.mode=m;
+  document.getElementById('uploadArea').style.display=m==='upload'?'block':'none';
+  document.getElementById('drawArea').style.display=m==='draw'?'block':'none';
+  document.getElementById('tab-upload').classList.toggle('active',m==='upload');
+  document.getElementById('tab-draw').classList.toggle('active',m==='draw');
+  if(m==='draw') initDraw();
+  updateRecBtn();
 }
 
-// ====== FILE HANDLING ======
-function handleFile(file) {
-  if (!file || !file.type.startsWith('image/')) {
-    showNotify('画像ファイルを選択してください','err'); return;
-  }
-  const reader = new FileReader();
-  reader.onload = e => {
-    state.imageData = e.target.result;
-    state.rotateAngle = 0;
-    showPreview(state.imageData);
+// ===== FILE UPLOAD =====
+function handleFile(f){
+  if(!f||!f.type.startsWith('image/')){showNotify('画像ファイルを選択してください','err');return;}
+  const r=new FileReader();
+  r.onload=e=>{
+    S.imgData=e.target.result; S.rotAngle=0;
+    document.getElementById('previewImg').src=e.target.result;
+    document.getElementById('previewImg').style.transform='rotate(0deg)';
+    document.getElementById('previewArea').style.display='block';
+    document.getElementById('dropZone').style.display='none';
+    updatePP(); updateRecBtn();
   };
-  reader.readAsDataURL(file);
+  r.readAsDataURL(f);
 }
 
-function showPreview(src) {
-  const wrap = document.getElementById('previewWrap');
-  const img = document.getElementById('previewImg');
-  const zone = document.getElementById('uploadZone');
-  img.src = src;
-  wrap.style.display = 'block';
-  zone.style.display = 'none';
-  document.getElementById('recBtn').disabled = false;
+function rotatePreview(){
+  S.rotAngle=(S.rotAngle+90)%360;
+  document.getElementById('previewImg').style.transform=`rotate(${S.rotAngle}deg)`;
 }
 
-function clearImage() {
-  state.imageData = null;
-  document.getElementById('previewWrap').style.display = 'none';
-  document.getElementById('uploadZone').style.display = 'block';
-  document.getElementById('recBtn').disabled = true;
-  document.getElementById('fileInput').value = '';
-  hideResult();
+function clearInput(){
+  S.imgData=null; S.rotAngle=0;
+  document.getElementById('previewArea').style.display='none';
+  document.getElementById('dropZone').style.display='block';
+  document.getElementById('fileInput').value='';
+  document.getElementById('ppPreview').style.display='none';
+  document.getElementById('resultCard').style.display='none';
+  updateRecBtn();
 }
 
-function openCamera() {
-  document.getElementById('cameraInput').click();
+// ===== DRAG & DROP =====
+function initDrop(){
+  const z=document.getElementById('dropZone');
+  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag');});
+  z.addEventListener('dragleave',()=>z.classList.remove('drag'));
+  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleFile(f);});
 }
 
-function rotateImage() {
-  state.rotateAngle = (state.rotateAngle + 90) % 360;
-  const img = document.getElementById('previewImg');
-  img.style.transform = `rotate(${state.rotateAngle}deg)`;
-  const isOdd = state.rotateAngle === 90 || state.rotateAngle === 270;
-  img.style.maxHeight = isOdd ? '320px' : '';
+// ===== PREPROCESS =====
+function updatePP(){
+  if(S.mode==='draw') return;
+  const src=S.imgData;
+  if(!src) return;
+  const bright=parseInt(document.getElementById('bright').value);
+  const contrast=parseInt(document.getElementById('contrast').value);
+  const sharp=parseInt(document.getElementById('sharp').value);
+  const scale=parseFloat(document.getElementById('scale').value);
+  const gray=document.getElementById('togGray').checked;
+  const bin=document.getElementById('togBin').checked;
+  const denoise=document.getElementById('togDenoise').checked;
+  document.getElementById('brightVal').textContent=bright>0?'+'+bright:bright;
+  document.getElementById('contrastVal').textContent=contrast>0?'+'+contrast:contrast;
+  document.getElementById('sharpVal').textContent=sharp;
+  document.getElementById('scaleVal').textContent=scale.toFixed(1)+'x';
+  const img=new Image();
+  img.onload=()=>{
+    const W=Math.round(img.naturalWidth*scale);
+    const H=Math.round(img.naturalHeight*scale);
+    const c=document.getElementById('ppCanvas');
+    c.width=W; c.height=H;
+    const ctx=c.getContext('2d');
+    ctx.save();
+    if(S.rotAngle){
+      ctx.translate(W/2,H/2);
+      ctx.rotate(S.rotAngle*Math.PI/180);
+      ctx.translate(-W/2,-H/2);
+    }
+    ctx.drawImage(img,0,0,W,H);
+    ctx.restore();
+    let id=ctx.getImageData(0,0,W,H);
+    let d=id.data;
+    // brightness & contrast
+    const bv=(bright/100)*255;
+    const cf=contrast>0?(259*(contrast+255))/(255*(259-contrast)):(259*(contrast+255))/(255*(259-contrast));
+    for(let i=0;i<d.length;i+=4){
+      d[i]=clamp(cf*(d[i]-128)+128+bv);
+      d[i+1]=clamp(cf*(d[i+1]-128)+128+bv);
+      d[i+2]=clamp(cf*(d[i+2]-128)+128+bv);
+    }
+    // grayscale
+    if(gray){
+      for(let i=0;i<d.length;i+=4){
+        const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        d[i]=d[i+1]=d[i+2]=g;
+      }
+    }
+    // binarize
+    if(bin){
+      for(let i=0;i<d.length;i+=4){
+        const v=d[i]>128?255:0;
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+    }
+    // denoise (simple median-like smoothing)
+    if(denoise){
+      const src2=new Uint8ClampedArray(d);
+      for(let y=1;y<H-1;y++){
+        for(let x=1;x<W-1;x++){
+          for(let c2=0;c2<3;c2++){
+            const idx=(y*W+x)*4+c2;
+            d[idx]=Math.round((src2[idx]+src2[idx-4]+src2[idx+4]+src2[(idx-W*4)]+src2[(idx+W*4)])/5);
+          }
+        }
+      }
+    }
+    ctx.putImageData(id,0,0);
+    document.getElementById('ppPreview').style.display='block';
+  };
+  img.src=src;
 }
 
-// ====== DRAG & DROP ======
-function initDragDrop() {
-  const zone = document.getElementById('uploadZone');
-  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault(); zone.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  });
-}
+document.querySelectorAll('#togGray,#togBin,#togDenoise').forEach(el=>el.addEventListener('change',updatePP));
+function clamp(v){return Math.min(255,Math.max(0,Math.round(v)));}
 
-// ====== OPTIONS ======
-function toggleOpt(key) {
-  state.options[key] = !state.options[key];
-  document.getElementById('opt-'+key).classList.toggle('active', state.options[key]);
-}
-function toggleDOpt(key) {
-  state.doptions[key] = !state.doptions[key];
-  document.getElementById('dopt-'+key).classList.toggle('active', state.doptions[key]);
-}
-
-function buildPrompt(opts) {
-  const langs = [];
-  if(opts.jp||opts.jp===undefined) langs.push('日本語');
-  if(opts.en) langs.push('英語');
-  const langStr = langs.join('と');
-  let prompt = `この画像に書かれている手書き文字を正確に読み取り、テキストに変換してください。\n\n`;
-  prompt += `対象言語: ${langStr}\n`;
-  if(opts.num) prompt += `数字・数式・記号も含めて認識してください。\n`;
-  if(opts.table) prompt += `表形式・リスト形式の場合はその構造を保持してください。\n`;
-  if(opts.steel) prompt += `鉄骨・建築図面の記号や断面表記（例: H-300×150×6.5×9）も正確に認識してください。\n`;
-  prompt += `\n認識したテキストのみを出力してください。説明文や前置きは不要です。\n読み取れない文字は「□」で表現してください。`;
-  return prompt;
-}
-
-// ====== RECOGNIZE (UPLOAD) ======
-async function recognize() {
-  if (!state.imageData) return;
-  await doRecognize(state.imageData, state.options);
-}
-
-// ====== RECOGNIZE (CANVAS) ======
-async function recognizeCanvas() {
-  const canvas = document.getElementById('drawCanvas');
-  const imgData = canvas.toDataURL('image/png');
-  // Check if canvas is blank
-  const ctx = canvas.getContext('2d');
-  const px = ctx.getImageData(0,0,canvas.width,canvas.height).data;
-  const hasContent = Array.from(px).some((v,i)=>i%4===3&&v<255);
-  // The canvas bg is white, so check if any pixel differs
-  let drawn = false;
-  for(let i=0;i<px.length;i+=4){if(px[i]<250||px[i+1]<250||px[i+2]<250){drawn=true;break;}}
-  if(!drawn){showNotify('先に文字を書いてください','err');return;}
-  await doRecognize(imgData, state.doptions);
-}
-
-async function doRecognize(imgDataUrl, opts) {
-  if (state.isLoading) return;
-  state.isLoading = true;
-  hideResult();
-  showLoading(true);
-
-  const base64 = imgDataUrl.replace(/^data:image\/\w+;base64,/, '');
-  const mediaType = imgDataUrl.match(/data:(image\/\w+);/)?.[1] || 'image/jpeg';
-  const msgs = [{
-    loading: ['AIが文字を解析中...', '手書きパターンを認識しています...', 'テキストに変換中...']
-  }];
-
-  // Cycle loading messages
-  let mi = 0;
-  const msgInterval = setInterval(()=>{
-    mi = (mi+1)%3;
-    document.getElementById('loadingMsg').textContent = ['AIが文字を解析中...','手書きパターンを認識しています...','テキストに変換中...'][mi];
-  }, 1200);
-
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {type:'image', source:{type:'base64', media_type:mediaType, data:base64}},
-            {type:'text', text: buildPrompt(opts)}
-          ]
-        }]
-      })
-    });
-
-    clearInterval(msgInterval);
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-    const data = await response.json();
-    const text = data.content?.[0]?.text || '';
-    showResult(text, imgDataUrl);
-  } catch(e) {
-    clearInterval(msgInterval);
-    showNotify('認識に失敗しました: ' + e.message, 'err');
-    console.error(e);
-  } finally {
-    showLoading(false);
-    state.isLoading = false;
+function getProcessedImageData(){
+  const ppC=document.getElementById('ppCanvas');
+  if(ppC.width>0 && S.mode==='upload'){
+    return ppC.toDataURL('image/png');
   }
-}
-
-// ====== UI HELPERS ======
-function showLoading(show) {
-  const el = document.getElementById('loadingWrap');
-  el.classList.toggle('show', show);
-  if(show) {
-    // reset bar animation
-    const bar = document.getElementById('loadingBar');
-    bar.style.animation = 'none';
-    bar.offsetHeight; // reflow
-    bar.style.animation = 'progress 3s ease-in-out forwards';
+  if(S.mode==='draw'){
+    return document.getElementById('drawCanvas').toDataURL('image/png');
   }
+  return S.imgData;
 }
 
-function showResult(text, thumbSrc) {
-  const wrap = document.getElementById('resultWrap');
-  const ta = document.getElementById('resultTextArea');
-  ta.value = text;
-  ta.style.height = 'auto';
-  ta.style.height = Math.max(ta.scrollHeight, 80) + 'px';
-  document.getElementById('charCount').textContent = text.length + ' 文字';
-
-  const conf = estimateConfidence(text);
-  document.getElementById('confFill').style.width = conf + '%';
-  document.getElementById('confVal').textContent = conf + '%';
-
-  wrap.style.display = 'block';
-  wrap.scrollIntoView({behavior:'smooth', block:'nearest'});
-
-  // Save to history
-  const entry = {id: Date.now(), text, thumb: thumbSrc, time: Date.now()};
-  state.history.unshift(entry);
-  if (state.history.length > 20) state.history.pop();
-  saveHistory();
+// ===== LANGUAGE =====
+function toggleLang(l){
+  if(S.langs.has(l)) S.langs.delete(l);
+  else S.langs.add(l);
+  document.getElementById('lc-'+l).classList.toggle('active',S.langs.has(l));
+  if(S.langs.size===0){S.langs.add('eng');document.getElementById('lc-eng').classList.add('active');}
 }
 
-function estimateConfidence(text) {
-  if (!text || text.length < 2) return 40;
-  const badChars = (text.match(/□/g)||[]).length;
-  const ratio = 1 - badChars / Math.max(text.length, 1);
-  return Math.min(99, Math.max(50, Math.round(ratio * 96)));
+// ===== CANVAS DRAW =====
+let isDown=false,lx=0,ly=0;
+function initDraw(){
+  const c=document.getElementById('drawCanvas');
+  const dpr=window.devicePixelRatio||1;
+  const W=c.parentElement.offsetWidth||340;
+  c.width=W*dpr; c.height=220*dpr;
+  c.style.height='220px';
+  const ctx=c.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.fillStyle='#fff';
+  ctx.fillRect(0,0,W,220);
+  saveSnap();
+  c.onmousedown=e=>startD(e.offsetX,e.offsetY);
+  c.onmousemove=e=>moveD(e.offsetX,e.offsetY);
+  c.onmouseup=()=>endD();
+  c.onmouseleave=()=>endD();
+  c.addEventListener('touchstart',e=>{e.preventDefault();const r=c.getBoundingClientRect(),dpr2=window.devicePixelRatio||1;const t=e.touches[0];startD((t.clientX-r.left)*c.width/(dpr2*r.width),(t.clientY-r.top)*220/r.height);},{passive:false});
+  c.addEventListener('touchmove',e=>{e.preventDefault();const r=c.getBoundingClientRect(),dpr2=window.devicePixelRatio||1;const t=e.touches[0];moveD((t.clientX-r.left)*c.width/(dpr2*r.width),(t.clientY-r.top)*220/r.height);},{passive:false});
+  c.addEventListener('touchend',()=>endD(),{passive:false});
 }
-
-function hideResult() {
-  document.getElementById('resultWrap').style.display = 'none';
-}
-
-function copyResult() {
-  const text = document.getElementById('resultTextArea').value;
-  navigator.clipboard.writeText(text).then(()=>{
-    const btn = document.getElementById('copyBtn');
-    btn.classList.add('copied');
-    btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;"><polyline points="20 6 9 17 4 12"/></svg> コピー済`;
-    showNotify('クリップボードにコピーしました');
-    setTimeout(()=>{
-      btn.classList.remove('copied');
-      btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> コピー`;
-    }, 2000);
-  });
-}
-
-function editResult() {
-  const ta = document.getElementById('resultTextArea');
-  if (ta.readOnly) {
-    ta.readOnly = false;
-    ta.focus();
-    ta.style.borderTop = '1px solid var(--ink2)';
-    showNotify('編集モードに切り替えました');
-  } else {
-    ta.readOnly = true;
-    ta.style.borderTop = 'none';
-    document.getElementById('charCount').textContent = ta.value.length + ' 文字';
-  }
-}
-
-// ====== CANVAS (DRAW MODE) ======
-let isDrawing = false, lastX = 0, lastY = 0;
-
-function initCanvas() {
-  const canvas = document.getElementById('drawCanvas');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.parentElement.getBoundingClientRect();
-  const W = rect.width || 340;
-  canvas.width = W * dpr;
-  canvas.height = 240 * dpr;
-  canvas.style.height = '240px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, W, 240);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = state.penSize;
-  saveCanvasSnapshot();
-
-  // Mouse events
-  canvas.addEventListener('mousedown', e => startDraw(e.offsetX, e.offsetY));
-  canvas.addEventListener('mousemove', e => draw(e.offsetX, e.offsetY));
-  canvas.addEventListener('mouseup', () => endDraw());
-  canvas.addEventListener('mouseleave', () => endDraw());
-
-  // Touch events
-  canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const r = canvas.getBoundingClientRect();
-    const t = e.touches[0];
-    startDraw((t.clientX-r.left)*(canvas.width/dpr/r.width), (t.clientY-r.top)*(240/r.height));
-  }, {passive:false});
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    const r = canvas.getBoundingClientRect();
-    const t = e.touches[0];
-    draw((t.clientX-r.left)*(canvas.width/dpr/r.width), (t.clientY-r.top)*(240/r.height));
-  }, {passive:false});
-  canvas.addEventListener('touchend', () => endDraw(), {passive:false});
-}
-
-function startDraw(x, y) {
-  isDrawing = true;
-  lastX = x; lastY = y;
-  const canvas = document.getElementById('drawCanvas');
-  const ctx = canvas.getContext('2d');
-  ctx.beginPath();
-  ctx.arc(x, y, state.eraser ? state.penSize*3 : state.penSize/2, 0, Math.PI*2);
-  ctx.fillStyle = state.eraser ? 'white' : document.getElementById('penColor').value;
+function startD(x,y){
+  isDown=true;lx=x;ly=y;
+  const c=document.getElementById('drawCanvas');
+  const ctx=c.getContext('2d');
+  ctx.beginPath();ctx.arc(x,y,S.eraser?S.penSz*3:S.penSz/2,0,Math.PI*2);
+  ctx.fillStyle=S.eraser?'white':document.getElementById('penColor').value;
   ctx.fill();
+  document.getElementById('canvasGuide').style.display='none';
 }
-
-function draw(x, y) {
-  if (!isDrawing) return;
-  const canvas = document.getElementById('drawCanvas');
-  const ctx = canvas.getContext('2d');
-  ctx.beginPath();
-  ctx.moveTo(lastX, lastY);
-  ctx.lineTo(x, y);
-  ctx.strokeStyle = state.eraser ? 'white' : document.getElementById('penColor').value;
-  ctx.lineWidth = state.eraser ? state.penSize * 6 : state.penSize;
-  ctx.stroke();
-  lastX = x; lastY = y;
+function moveD(x,y){
+  if(!isDown)return;
+  const c=document.getElementById('drawCanvas');
+  const ctx=c.getContext('2d');
+  ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);
+  ctx.strokeStyle=S.eraser?'white':document.getElementById('penColor').value;
+  ctx.lineWidth=S.eraser?S.penSz*6:S.penSz;
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.stroke();lx=x;ly=y;
 }
-
-function endDraw() {
-  if (isDrawing) { isDrawing = false; saveCanvasSnapshot(); }
+function endD(){if(isDown){isDown=false;saveSnap();updateRecBtn();}}
+function saveSnap(){drawHistory.push(document.getElementById('drawCanvas').toDataURL());if(drawHistory.length>15)drawHistory.shift();}
+function clearDraw(){
+  const c=document.getElementById('drawCanvas');
+  const ctx=c.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  ctx.fillStyle='white';ctx.fillRect(0,0,c.width/dpr,c.height/dpr);
+  drawHistory=[];saveSnap();
+  document.getElementById('canvasGuide').style.display='flex';
+  document.getElementById('resultCard').style.display='none';
+  updateRecBtn();
 }
-
-function saveCanvasSnapshot() {
-  const canvas = document.getElementById('drawCanvas');
-  canvasHistory.push(canvas.toDataURL());
-  if (canvasHistory.length > 20) canvasHistory.shift();
+function undo(){
+  if(drawHistory.length<=1)return;
+  drawHistory.pop();
+  const c=document.getElementById('drawCanvas');
+  const ctx=c.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const img=new Image();
+  img.onload=()=>{ctx.clearRect(0,0,c.width/dpr,c.height/dpr);ctx.drawImage(img,0,0,c.width/dpr,c.height/dpr);};
+  img.src=drawHistory[drawHistory.length-1];
 }
-
-function clearCanvas() {
-  const canvas = document.getElementById('drawCanvas');
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio||1;
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0,0,canvas.width/dpr,canvas.height/dpr);
-  canvasHistory = [];
-  saveCanvasSnapshot();
-  hideResult();
-}
-
-function undoCanvas() {
-  if (canvasHistory.length <= 1) return;
-  canvasHistory.pop();
-  const canvas = document.getElementById('drawCanvas');
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-  img.onload = () => {
-    const dpr = window.devicePixelRatio||1;
-    ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
-    ctx.drawImage(img,0,0,canvas.width/dpr,canvas.height/dpr);
-  };
-  img.src = canvasHistory[canvasHistory.length-1];
-}
-
-function setPenSize(size, id) {
-  state.penSize = size;
-  state.eraser = false;
-  document.querySelectorAll('.pen-size').forEach(e=>e.classList.remove('active'));
+function setSz(s,id){
+  S.penSz=s;S.eraser=false;
+  document.querySelectorAll('.sz-btn').forEach(e=>e.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  document.getElementById('eraserBtn').classList.remove('active');
+  document.getElementById('eraserTool').classList.remove('active');
+}
+function toggleEraser(){
+  S.eraser=!S.eraser;
+  document.getElementById('eraserTool').classList.toggle('active',S.eraser);
 }
 
-function toggleEraser() {
-  state.eraser = !state.eraser;
-  document.getElementById('eraserBtn').classList.toggle('active', state.eraser);
+// ===== HELPERS =====
+function updateRecBtn(){
+  const hasUpload=S.mode==='upload'&&S.imgData;
+  const hasDraw=S.mode==='draw'&&drawHistory.length>1;
+  document.getElementById('recBtn').disabled=(!hasUpload&&!hasDraw)||S.processing;
 }
 
-// ====== HISTORY ======
-function saveHistory() {
-  localStorage.setItem('ocr_history', JSON.stringify(state.history.map(h=>({...h, thumb: h.thumb?.substring(0,200)+'...'}))));
-}
+// ===== OCR =====
+const STATUS_MAP={
+  'loading tesseract core': '言語エンジンを読み込み中...',
+  'initializing tesseract': 'Tesseractを初期化中...',
+  'loading language traineddata': '言語データをダウンロード中...',
+  'initializing api': 'APIを初期化中...',
+  'recognizing text': '文字を認識中...',
+  'detecting orientation': '文字の向きを検出中...',
+};
 
-function loadHistory() {
-  try {
-    const d = localStorage.getItem('ocr_history');
-    if (d) state.history = JSON.parse(d);
-  } catch(e) {}
-}
+async function startOCR(){
+  if(S.processing)return;
+  if(S.langs.size===0){showNotify('言語を1つ以上選択してください','err');return;}
 
-function openDrawer() {
-  renderDrawer();
-  document.getElementById('drawerOverlay').classList.add('open');
-}
+  S.processing=true;
+  document.getElementById('recBtn').disabled=true;
+  document.getElementById('progressWrap').classList.add('show');
+  document.getElementById('resultCard').style.display='none';
+  setStage(-1);
 
-function closeDrawer() {
-  document.getElementById('drawerOverlay').classList.remove('open');
-}
-
-document.getElementById('drawerOverlay').addEventListener('click', function(e) {
-  if (e.target === this) closeDrawer();
-});
-document.querySelector('.drawer').addEventListener('click', e => e.stopPropagation());
-
-function renderDrawer() {
-  const el = document.getElementById('drawerList');
-  if (!state.history.length) {
-    el.innerHTML = '<div class="hist-empty">認識履歴はありません</div>';
-    return;
+  try{
+    const imgSrc=getProcessedImageData();
+    const langStr=[...S.langs].join('+');
+    const result=await Tesseract.recognize(imgSrc,langStr,{
+      logger:m=>updateProgress(m),
+    });
+    showResult(result.data.text, result.data.confidence);
+  }catch(e){
+    console.error(e);
+    showNotify('認識中にエラーが発生しました: '+e.message,'err');
+  }finally{
+    S.processing=false;
+    document.getElementById('progressWrap').classList.remove('show');
+    updateRecBtn();
   }
-  el.innerHTML = state.history.map(h => `
-    <div class="hist-card" onclick="restoreHistory('${h.id}')">
-      <div class="hist-text-preview">${h.text.replace(/</g,'&lt;')}</div>
-      <div class="hist-meta">${new Date(h.time).toLocaleString('ja-JP')} · ${h.text.length}文字</div>
-    </div>
-  `).join('');
 }
 
-function restoreHistory(id) {
-  const h = state.history.find(x=>x.id==id);
-  if (!h) return;
-  showResult(h.text, h.thumb || '');
-  closeDrawer();
+function updateProgress(m){
+  const pct=Math.round((m.progress||0)*100);
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progPct').textContent=pct+'%';
+  const label=STATUS_MAP[m.status]||m.status||'処理中...';
+  document.getElementById('progLabel').textContent=label;
+  document.getElementById('progStatus').textContent=m.status||'';
+
+  // Stage mapping
+  if(m.status==='loading tesseract core'||m.status==='loading language traineddata') setStage(0);
+  else if(m.status==='initializing tesseract'||m.status==='initializing api') setStage(1);
+  else if(m.status==='detecting orientation') setStage(2);
+  else if(m.status==='recognizing text') setStage(3);
 }
 
-// ====== NOTIFY ======
-let notifyTimer;
-function showNotify(msg, type='') {
-  const el = document.getElementById('notify');
-  el.textContent = msg;
-  el.className = 'notify show' + (type==='err'?' err':'');
-  clearTimeout(notifyTimer);
-  notifyTimer = setTimeout(()=>el.classList.remove('show'), 2800);
+function setStage(n){
+  ['stg-load','stg-init','stg-layout','stg-recog','stg-done'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.className='prog-stage'+(i<n?' done':i===n?' current':'');
+  });
+}
+
+function showResult(text,conf){
+  const ta=document.getElementById('resultTA');
+  ta.value=text.trim()||'（テキストを検出できませんでした）';
+  ta.style.height='auto';
+  ta.style.height=Math.max(ta.scrollHeight,80)+'px';
+  document.getElementById('charCount').textContent=text.trim().length+' 文字';
+  const confVal=Math.round(conf);
+  const confColor=confVal>=80?'#1a6b3c':confVal>=50?'#8a6000':'#b32020';
+  document.getElementById('confFill').style.width=confVal+'%';
+  document.getElementById('confFill').style.background=confColor;
+  document.getElementById('confVal').textContent=confVal+'%';
+  document.getElementById('confVal').style.color=confColor;
+  const card=document.getElementById('resultCard');
+  card.style.display='block';
+  setStage(4);
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(confVal<40) showNotify('信頼度が低めです。補正を調整して再試行してみてください','err');
+  else showNotify('認識完了！','ok');
+}
+
+function copyResult(){
+  const t=document.getElementById('resultTA').value;
+  navigator.clipboard.writeText(t).then(()=>{
+    const btn=document.getElementById('copyBtn');
+    btn.classList.add('copied');
+    btn.innerHTML='<svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;"><polyline points="20 6 9 17 4 12"/></svg>コピー済';
+    showNotify('クリップボードにコピーしました','ok');
+    setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='<svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>コピー';},2000);
+  });
+}
+
+function toggleEdit(){
+  const ta=document.getElementById('resultTA');
+  if(ta.readOnly){ta.readOnly=false;ta.focus();ta.style.background='#fffef0';showNotify('編集モードON');}
+  else{ta.readOnly=true;ta.style.background='white';document.getElementById('charCount').textContent=ta.value.length+' 文字';}
+}
+
+// ===== NOTIFY =====
+let nt;
+function showNotify(msg,type=''){
+  const el=document.getElementById('notify');
+  el.textContent=msg;
+  el.className='notify show'+(type==='err'?' err':type==='ok'?' ok':'');
+  clearTimeout(nt);
+  nt=setTimeout(()=>el.classList.remove('show'),2800);
 }
 </script>
 </body>
