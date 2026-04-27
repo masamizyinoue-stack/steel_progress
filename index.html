@@ -1,868 +1,341 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>手書き認識 - Tesseract版</title>
-<style>
-:root{
-  --bg:#f5f3ef;--bg2:#ffffff;--bg3:#f0ede8;--bg4:#e8e4dc;
-  --border:#d4cfc6;--border2:#b8b2a8;
-  --text:#1a1810;--sub:#7a7268;
-  --ink:#1e4a8a;--ink2:#2563b8;--ink3:#d4e4f7;
-  --orange:#c45a00;--orange2:#fff3e6;
-  --green:#1a6b3c;--green2:#e8f5ee;
-  --red:#b32020;--red2:#fdeaea;
-  --yellow:#8a6000;--yellow2:#fffae6;
-  --r:10px;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP','Hiragino Sans',sans-serif;min-height:100vh;}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>構造図 自動監査・比較ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #1e1e24;
+            --panel-bg: #2b2b36;
+            --border-color: #444;
+            --text-main: #f8fafc;
+            --old-color: #3b82f6; /* 青 */
+            --new-color: #ef4444; /* 赤 */
+            --divider-color: #22c55e; /* 緑色の極太線 */
+            --input-yellow: #fff9c4; /* 入力欄用の薄い黄色 */
+            --accent-green: #10b981;
+        }
+        body {
+            margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            background-color: var(--bg-dark); color: var(--text-main); overflow: hidden;
+        }
+        header { background-color: var(--panel-bg); border-bottom: 1px solid var(--border-color); z-index: 10; }
+        .toolbar { padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .control-group { display: flex; align-items: center; background: rgba(0,0,0,0.2); padding: 5px 15px; border-radius: 5px; }
+        .label-text { font-size: 0.9em; margin-right: 10px; margin-left: 10px; }
+        .p-label { font-size: 1.1em; font-weight: bold; margin-right: 8px; margin-left: 15px; }
+        .page-input { width: 60px; padding: 4px; font-size: 16px; border-radius: 4px; border: 1px solid #999; text-align: center; font-weight: bold; background-color: var(--input-yellow); color: #000; }
+        .page-selectors { display: flex; gap: 3px; align-items: center; }
+        select { padding: 4px; font-size: 16px; border-radius: 4px; border: 1px solid #999; background: #ffffff; color: #000; font-weight: bold; cursor: pointer; }
+        .center-controls { display: flex; gap: 8px; }
+        button { padding: 8px 16px; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+        .btn-reset { background-color: #4b5563; color: white; }
+        .btn-compare { background-color: var(--accent-green); color: white; }
+        .btn-compare.active { background-color: #fff; color: var(--accent-green); border: 2px solid var(--accent-green); }
+        .btn-scan { background-color: #8b5cf6; color: white; } /* スキャン用紫 */
+        .btn-scan:disabled { background-color: #444; cursor: not-allowed; }
 
-/* ===== HEADER ===== */
-header{
-  background:var(--ink);color:white;
-  padding:12px 18px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:50;
-}
-.header-left{display:flex;align-items:center;gap:10px;}
-.logo-icon{
-  width:34px;height:34px;border-radius:8px;
-  background:rgba(255,255,255,.2);
-  display:flex;align-items:center;justify-content:center;
-}
-.logo-icon svg{width:18px;height:18px;fill:white;}
-.header-title{font-size:15px;font-weight:700;}
-.header-badge{
-  font-size:10px;background:rgba(255,255,255,.2);
-  padding:2px 8px;border-radius:10px;margin-left:6px;
-  letter-spacing:.04em;
-}
-.offline-badge{
-  display:flex;align-items:center;gap:5px;
-  font-size:11px;color:rgba(255,255,255,.85);
-}
-.offline-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;}
+        .filename-bar { display: flex; justify-content: space-between; padding: 5px 20px; background-color: #1a1a20; font-size: 12px; border-bottom: 1px solid var(--border-color); }
+        .filename-display { width: 48%; word-break: break-all; white-space: normal; min-height: 1.5em; color: #9ca3af; }
 
-/* ===== MAIN ===== */
-main{padding:16px;max-width:680px;margin:0 auto;padding-bottom:30px;}
+        main { display: flex; flex: 1; overflow: hidden; position: relative; }
+        .pane { flex: 1; position: relative; background-color: #e5e7eb; overflow: hidden; }
+        #pane-old { border-right: 10px solid var(--divider-color); }
+        .pane.drag-over { background-color: #bfdbfe; border: 3px dashed #2563eb; }
+        .pane.drag-over::after { content: "ここにドロップ"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: #2563eb; font-weight: bold; pointer-events: none; }
+        .canvas-wrapper { transform-origin: 0 0; position: absolute; top: 0; left: 0; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); }
+        canvas { display: block; background-color: white; }
+        .pane-label { position: absolute; top: 10px; left: 10px; z-index: 5; padding: 5px 12px; border-radius: 4px; font-weight: bold; color: white; pointer-events: none; }
 
-/* ===== CARD ===== */
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;}
-.card-head{
-  padding:12px 16px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:8px;
-  background:var(--bg3);
-}
-.card-head h2{font-size:13px;font-weight:700;color:var(--text);}
-.step-num{
-  width:22px;height:22px;border-radius:50%;
-  background:var(--ink);color:white;
-  font-size:11px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.card-body{padding:16px;}
+        #pane-compare { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; background-color: #e5e7eb; z-index: 20; overflow: hidden; }
+        .nudge-container { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 30; }
+        .btn-nudge-reset { background-color: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 20px; font-size: 11px; cursor: pointer; }
 
-/* ===== MODE TABS ===== */
-.mode-tabs{display:flex;gap:6px;margin-bottom:0;}
-.mode-tab{
-  flex:1;padding:8px 6px;border-radius:7px;
-  border:1.5px solid var(--border);background:var(--bg3);
-  color:var(--sub);font-size:12px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:5px;
-  font-weight:600;transition:all .15s;
-}
-.mode-tab svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;}
-.mode-tab.active{background:var(--ink3);border-color:var(--ink2);color:var(--ink);}
+        /* スキャン結果パネル */
+        #scan-results-panel {
+            position: absolute; left: 20px; bottom: 20px; width: 250px; max-height: 40%;
+            background: rgba(0,0,0,0.85); border-radius: 8px; z-index: 40; display: none;
+            flex-direction: column; border: 1px solid var(--accent-green);
+        }
+        .scan-header { padding: 10px; border-bottom: 1px solid #444; font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; }
+        #scan-list { padding: 10px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 5px; }
+        .diff-page-btn { background: var(--new-color); color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        
+        /* スキャン中オーバーレイ */
+        #scan-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 100; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        .progress-box { width: 300px; background: #333; height: 20px; border-radius: 10px; overflow: hidden; margin: 15px; }
+        #progress-bar { width: 0%; height: 100%; background: var(--accent-green); transition: width 0.1s; }
 
-/* ===== UPLOAD ===== */
-.upload-zone{
-  border:2px dashed var(--border2);border-radius:8px;
-  padding:28px 16px;text-align:center;cursor:pointer;
-  transition:all .2s;position:relative;background:var(--bg3);
-  margin-bottom:10px;
-}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--ink2);background:var(--ink3);}
-.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-.upload-zone svg{width:32px;height:32px;stroke:var(--ink2);stroke-width:1.5;fill:none;margin-bottom:8px;}
-.upload-zone p{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:3px;}
-.upload-zone small{font-size:11px;color:var(--sub);}
-.cam-btn{
-  width:100%;padding:10px;border-radius:8px;
-  background:var(--bg3);border:1.5px solid var(--border);
-  color:var(--text);font-size:13px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:7px;
-  font-weight:600;transition:all .15s;
-}
-.cam-btn:hover{border-color:var(--ink2);color:var(--ink);}
-.cam-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;}
-
-/* ===== PREVIEW ===== */
-.preview-area{display:none;margin-top:12px;}
-.preview-img-wrap{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--bg3);margin-bottom:8px;}
-.preview-img-wrap img{width:100%;display:block;max-height:280px;object-fit:contain;}
-.preview-btns{display:flex;gap:6px;}
-.prev-btn{
-  flex:1;padding:7px;border-radius:7px;
-  border:1px solid var(--border);background:var(--bg3);
-  color:var(--sub);font-size:12px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:5px;
-}
-.prev-btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;}
-.prev-btn:hover{border-color:var(--border2);}
-
-/* ===== CANVAS ===== */
-.canvas-area{display:none;}
-.canvas-frame{
-  border-radius:8px;overflow:hidden;
-  border:1.5px solid var(--border2);
-  background:white;margin-bottom:8px;
-  touch-action:none;cursor:crosshair;
-  position:relative;
-}
-canvas{display:block;width:100%;}
-.canvas-guide{
-  position:absolute;inset:0;pointer-events:none;
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;color:rgba(0,0,0,.25);letter-spacing:.05em;
-}
-.c-toolbar{
-  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-  padding:8px;background:var(--bg3);border:1px solid var(--border);
-  border-radius:8px;
-}
-.c-tool{
-  width:32px;height:32px;border-radius:6px;
-  border:1px solid var(--border);background:var(--bg2);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .15s;color:var(--text);
-}
-.c-tool.active{background:var(--ink3);border-color:var(--ink2);color:var(--ink);}
-.c-tool svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;}
-.sz-btns{display:flex;gap:4px;}
-.sz-btn{
-  width:30px;height:30px;border-radius:6px;
-  border:1px solid var(--border);background:var(--bg2);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .15s;
-}
-.sz-btn.active{background:var(--ink3);border-color:var(--ink2);}
-.sz-dot{border-radius:50%;background:var(--text);}
-.c-sep{width:1px;height:22px;background:var(--border);margin:0 2px;}
-
-/* ===== PREPROCESS ===== */
-.preprocess-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.pp-item label{font-size:11px;color:var(--sub);font-weight:600;display:block;margin-bottom:5px;}
-.pp-item input[type=range]{width:100%;accent-color:var(--ink2);}
-.pp-value{font-size:11px;color:var(--ink);font-weight:700;margin-left:6px;}
-.toggle-row{display:flex;align-items:center;gap:8px;padding:6px 0;}
-.toggle-row label{font-size:12px;font-weight:600;flex:1;}
-.toggle{
-  position:relative;width:38px;height:21px;cursor:pointer;
-}
-.toggle input{opacity:0;width:0;height:0;}
-.toggle-slider{
-  position:absolute;inset:0;background:var(--border2);
-  border-radius:21px;transition:.2s;
-}
-.toggle-slider::before{
-  content:'';position:absolute;width:17px;height:17px;
-  left:2px;bottom:2px;background:white;
-  border-radius:50%;transition:.2s;
-}
-.toggle input:checked+.toggle-slider{background:var(--ink2);}
-.toggle input:checked+.toggle-slider::before{transform:translateX(17px);}
-.preview-processed{
-  display:none;border-radius:7px;overflow:hidden;
-  border:1px solid var(--border);margin-top:10px;
-}
-.preview-processed canvas{width:100%;display:block;max-height:180px;object-fit:contain;}
-
-/* ===== LANGUAGE ===== */
-.lang-chips{display:flex;gap:6px;flex-wrap:wrap;}
-.lang-chip{
-  padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;
-  border:1.5px solid var(--border);background:var(--bg3);
-  color:var(--sub);font-weight:600;transition:all .15s;
-}
-.lang-chip.active{background:var(--ink3);border-color:var(--ink2);color:var(--ink);}
-
-/* ===== REC BUTTON ===== */
-.rec-btn{
-  width:100%;padding:14px;border-radius:10px;
-  background:var(--ink);border:none;
-  color:white;font-size:15px;font-weight:700;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
-  transition:all .15s;letter-spacing:.03em;
-  box-shadow:0 2px 8px rgba(30,74,138,.3);
-}
-.rec-btn:hover{background:var(--ink2);}
-.rec-btn:active{transform:scale(.98);}
-.rec-btn:disabled{background:var(--border2);color:white;cursor:default;box-shadow:none;transform:none;}
-.rec-btn svg{width:18px;height:18px;stroke:white;stroke-width:2.5;fill:none;}
-
-/* ===== PROGRESS ===== */
-.progress-wrap{
-  display:none;background:var(--bg2);border:1px solid var(--border);
-  border-radius:var(--r);padding:20px;margin-bottom:14px;
-}
-.progress-wrap.show{display:block;}
-.prog-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.prog-label{font-size:13px;font-weight:700;}
-.prog-pct{font-size:13px;font-weight:700;color:var(--ink2);}
-.prog-track{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:10px;}
-.prog-fill{height:100%;background:var(--ink2);border-radius:4px;transition:width .3s ease;width:0%;}
-.prog-status{font-size:12px;color:var(--sub);}
-.prog-stages{display:flex;gap:4px;margin-top:12px;}
-.prog-stage{
-  flex:1;padding:5px 4px;border-radius:6px;
-  border:1px solid var(--border);background:var(--bg3);
-  font-size:10px;text-align:center;color:var(--sub);
-  transition:all .2s;
-}
-.prog-stage.done{background:var(--green2);border-color:var(--green);color:var(--green);}
-.prog-stage.current{background:var(--ink3);border-color:var(--ink2);color:var(--ink);font-weight:700;}
-
-/* ===== RESULT ===== */
-.result-card{
-  display:none;background:var(--bg2);border:1.5px solid var(--green);
-  border-radius:var(--r);margin-bottom:14px;overflow:hidden;
-}
-.result-head{
-  padding:10px 14px;background:var(--green2);
-  display:flex;align-items:center;justify-content:space-between;
-  border-bottom:1px solid var(--border);
-}
-.result-head-left{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--green);}
-.result-head-left svg{width:16px;height:16px;stroke:var(--green);stroke-width:2.5;fill:none;}
-.result-btns{display:flex;gap:5px;}
-.r-btn{
-  padding:5px 12px;border-radius:6px;
-  border:1px solid var(--border);background:var(--bg2);
-  color:var(--sub);font-size:11px;cursor:pointer;
-  display:flex;align-items:center;gap:4px;font-weight:600;
-  transition:all .15s;
-}
-.r-btn:hover{border-color:var(--border2);}
-.r-btn svg{width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;}
-.r-btn.copied{border-color:var(--green);color:var(--green);}
-textarea.result-ta{
-  width:100%;background:white;border:none;
-  color:var(--text);font-size:16px;line-height:1.85;
-  resize:none;outline:none;padding:16px;
-  font-family:inherit;min-height:80px;
-}
-.result-foot{
-  padding:8px 14px;background:var(--bg3);border-top:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-}
-.conf-wrap{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);}
-.conf-bar{width:50px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
-.conf-fill{height:100%;border-radius:2px;transition:width .5s;}
-
-/* ===== INFO BANNER ===== */
-.info-banner{
-  background:var(--yellow2);border:1px solid #f0d060;
-  border-radius:8px;padding:10px 14px;
-  display:flex;align-items:flex-start;gap:8px;
-  font-size:12px;color:var(--yellow);margin-bottom:14px;
-  line-height:1.6;
-}
-.info-banner svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0;margin-top:1px;}
-
-/* ===== NOTIFY ===== */
-.notify{
-  position:fixed;top:66px;left:50%;
-  transform:translateX(-50%) translateY(-8px);
-  background:var(--ink);color:white;
-  padding:9px 18px;border-radius:18px;
-  font-size:12px;font-weight:600;z-index:200;
-  opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap;
-  box-shadow:0 4px 16px rgba(0,0,0,.2);
-}
-.notify.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.notify.err{background:var(--red);}
-.notify.ok{background:var(--green);}
-</style>
+        .nudge-pad { background: rgba(0,0,0,0.7); padding: 10px; border-radius: 50%; display: grid; grid-template-columns: 30px 30px 30px; grid-template-rows: 30px 30px 30px; gap: 5px; align-items: center; justify-items: center; }
+        .nudge-btn { background: #444; border: 1px solid #666; color: white; border-radius: 4px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; }
+        .nudge-info { grid-column: 1 / 4; color: white; font-size: 10px; text-align: center; margin-top: 5px; }
+    </style>
 </head>
 <body>
 
-<header>
-  <div class="header-left">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-    </div>
-    <div>
-      <div class="header-title">手書き文字認識 <span class="header-badge">Tesseract版</span></div>
-    </div>
-  </div>
-  <div class="offline-badge">
-    <div class="offline-dot"></div>
-    AI不要・オフライン動作
-  </div>
-</header>
+    <header>
+        <div class="toolbar">
+            <div class="control-group">
+                <span style="color: var(--old-color); font-weight:bold;">■ 旧図面</span>
+                <span class="label-text">ページを表示：</span>
+                <input type="number" id="old-num" class="page-input" min="1" max="999" value="1">
+                <span class="p-label">P:</span>
+                <div class="page-selectors" id="sel-old"><select id="old-h"></select><select id="old-t"></select><select id="old-u"></select></div>
+            </div>
 
-<main>
+            <div class="center-controls">
+                <button class="btn-reset" onclick="resetView()">全体に戻す</button>
+                <button class="btn-scan" id="start-scan" onclick="scanAllPages()">全ページ差分スキャン</button>
+                <button class="btn-compare" id="toggle-compare" onclick="toggleCompareMode()">比較モード：OFF</button>
+            </div>
 
-  <!-- INFO -->
-  <div class="info-banner">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    <div>
-      <b>初回のみ</b>言語データをダウンロードします（日本語 約36MB、英語 約10MB）。2回目以降はブラウザキャッシュから読み込むため高速です。<br>
-      <b>印刷文字・丁寧な手書き</b>で精度が上がります。崩し字は認識が難しい場合があります。
-    </div>
-  </div>
-
-  <!-- STEP 1: 入力 -->
-  <div class="card">
-    <div class="card-head">
-      <div class="step-num">1</div>
-      <h2>画像・手書きを入力</h2>
-    </div>
-    <div class="card-body">
-      <div class="mode-tabs" style="margin-bottom:12px;">
-        <button class="mode-tab active" id="tab-upload" onclick="setMode('upload')">
-          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="3 9 21 9"/><polyline points="9 21 9 9"/></svg>
-          写真・ファイル
-        </button>
-        <button class="mode-tab" id="tab-draw" onclick="setMode('draw')">
-          <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-          手書き入力
-        </button>
-      </div>
-
-      <!-- UPLOAD AREA -->
-      <div id="uploadArea">
-        <div class="upload-zone" id="dropZone">
-          <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])">
-          <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
-          <p>タップして写真を選択</p>
-          <small>またはドラッグ＆ドロップ（JPEG / PNG / GIF）</small>
+            <div class="control-group">
+                <span style="color: var(--new-color); font-weight:bold;">■ 新図面</span>
+                <span class="label-text">ページを表示：</span>
+                <input type="number" id="new-num" class="page-input" min="1" max="999" value="1">
+                <span class="p-label">P:</span>
+                <div class="page-selectors" id="sel-new"><select id="new-h"></select><select id="new-t"></select><select id="new-u"></select></div>
+            </div>
         </div>
-        <button class="cam-btn" style="margin-top:8px;" onclick="document.getElementById('camInput').click()">
-          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          カメラで今すぐ撮影する
-        </button>
-        <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this.files[0])">
-
-        <div class="preview-area" id="previewArea">
-          <div class="preview-img-wrap">
-            <img id="previewImg" src="" alt="preview">
-          </div>
-          <div class="preview-btns">
-            <button class="prev-btn" onclick="rotatePreview()">
-              <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
-              回転
-            </button>
-            <button class="prev-btn" onclick="clearInput()">
-              <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-              クリア
-            </button>
-          </div>
+        <div class="filename-bar">
+            <div class="filename-display" id="name-old">未読み込み (左にドロップ)</div>
+            <div class="filename-display" id="name-new" style="text-align: right;">未読み込み (右にドロップ)</div>
         </div>
-      </div>
+    </header>
 
-      <!-- DRAW AREA -->
-      <div class="canvas-area" id="drawArea">
-        <div class="canvas-frame">
-          <canvas id="drawCanvas"></canvas>
-          <div class="canvas-guide" id="canvasGuide">ここに文字を書いてください</div>
+    <main id="main-area">
+        <div class="pane drop-zone" id="pane-old">
+            <div class="pane-label" style="background: rgba(59, 130, 246, 0.8);">旧図面</div>
+            <div class="canvas-wrapper" id="wrap-old"><canvas id="canvas-old"></canvas></div>
         </div>
-        <div class="c-toolbar">
-          <div class="sz-btns">
-            <div class="sz-btn active" id="sz1" onclick="setSz(2,'sz1')"><div class="sz-dot" style="width:4px;height:4px"></div></div>
-            <div class="sz-btn" id="sz2" onclick="setSz(5,'sz2')"><div class="sz-dot" style="width:8px;height:8px"></div></div>
-            <div class="sz-btn" id="sz3" onclick="setSz(9,'sz3')"><div class="sz-dot" style="width:13px;height:13px"></div></div>
-          </div>
-          <div class="c-sep"></div>
-          <div class="c-tool" id="eraserTool" title="消しゴム" onclick="toggleEraser()">
-            <svg viewBox="0 0 24 24"><path d="M20 20H7L3 16l11-11 6 6-6.5 6.5"/><path d="M6 11l7 7"/></svg>
-          </div>
-          <div class="c-tool" title="元に戻す" onclick="undo()">
-            <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
-          </div>
-          <div class="c-tool" title="全消去" onclick="clearDraw()">
-            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H8L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-          </div>
-          <div class="c-sep"></div>
-          <span style="font-size:11px;color:var(--sub)">色:</span>
-          <input type="color" id="penColor" value="#000000" style="width:28px;height:28px;border:none;border-radius:5px;cursor:pointer;padding:2px;background:var(--bg3);">
+        <div class="pane drop-zone" id="pane-new">
+            <div class="pane-label" style="background: rgba(239, 68, 68, 0.8);">新図面</div>
+            <div class="canvas-wrapper" id="wrap-new"><canvas id="canvas-new"></canvas></div>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- STEP 2: 前処理 -->
-  <div class="card">
-    <div class="card-head">
-      <div class="step-num">2</div>
-      <h2>画像補正（精度向上）</h2>
-    </div>
-    <div class="card-body">
-      <div class="preprocess-grid">
-        <div class="pp-item">
-          <label>明るさ <span class="pp-value" id="brightVal">0</span></label>
-          <input type="range" id="bright" min="-100" max="100" value="0" oninput="updatePP()">
+        <div id="pane-compare">
+            <div class="pane-label" style="background: rgba(16, 185, 129, 0.9);">比較モード (青:旧 / 赤:新 / 黒:共通)</div>
+            <div class="canvas-wrapper" id="wrap-comp"><canvas id="canvas-comp"></canvas></div>
+            <div class="nudge-container">
+                <button class="btn-nudge-reset" onclick="resetNudge()">微調整をリセット</button>
+                <div class="nudge-pad">
+                    <div></div><div class="nudge-btn" onclick="nudge(0,-1)">▲</div><div></div>
+                    <div class="nudge-btn" onclick="nudge(-1,0)">◀</div><div style="font-size:9px;">微調整</div><div class="nudge-btn" onclick="nudge(1,0)">▶</div>
+                    <div></div><div class="nudge-btn" onclick="nudge(0,1)">▼</div><div></div>
+                    <div class="nudge-info">X: <span id="nudge-x">0</span>, Y: <span id="nudge-y">0</span></div>
+                </div>
+            </div>
         </div>
-        <div class="pp-item">
-          <label>コントラスト <span class="pp-value" id="contrastVal">0</span></label>
-          <input type="range" id="contrast" min="-100" max="100" value="0" oninput="updatePP()">
+
+        <div id="scan-results-panel">
+            <div class="scan-header"><span>食い違うページ一覧</span><button onclick="this.parentElement.parentElement.style.display='none'" style="background:none; color:white; border:none; cursor:pointer;">×</button></div>
+            <div id="scan-list"></div>
         </div>
-        <div class="pp-item">
-          <label>シャープ <span class="pp-value" id="sharpVal">0</span></label>
-          <input type="range" id="sharp" min="0" max="5" value="0" step="1" oninput="updatePP()">
+
+        <div id="scan-overlay">
+            <h2 id="scan-status">全ページを監査中...</h2>
+            <div class="progress-box"><div id="progress-bar"></div></div>
+            <p id="scan-count">0 / 0</p>
         </div>
-        <div class="pp-item">
-          <label>スケール <span class="pp-value" id="scaleVal">1.0x</span></label>
-          <input type="range" id="scale" min="1" max="4" value="2" step="0.5" oninput="updatePP()">
-        </div>
-      </div>
-      <div class="toggle-row">
-        <label>グレースケール変換（推奨）</label>
-        <label class="toggle"><input type="checkbox" id="togGray" checked><div class="toggle-slider"></div></label>
-      </div>
-      <div class="toggle-row">
-        <label>二値化（白黒にする）</label>
-        <label class="toggle"><input type="checkbox" id="togBin"><div class="toggle-slider"></div></label>
-      </div>
-      <div class="toggle-row">
-        <label>ノイズ除去</label>
-        <label class="toggle"><input type="checkbox" id="togDenoise"><div class="toggle-slider"></div></label>
-      </div>
-      <div class="preview-processed" id="ppPreview">
-        <canvas id="ppCanvas"></canvas>
-      </div>
-    </div>
-  </div>
+    </main>
 
-  <!-- STEP 3: 言語 -->
-  <div class="card">
-    <div class="card-head">
-      <div class="step-num">3</div>
-      <h2>認識言語を選択</h2>
-    </div>
-    <div class="card-body">
-      <div class="lang-chips">
-        <div class="lang-chip active" id="lc-jpn" onclick="toggleLang('jpn')">🇯🇵 日本語</div>
-        <div class="lang-chip active" id="lc-eng" onclick="toggleLang('eng')">🇺🇸 英語</div>
-        <div class="lang-chip" id="lc-jpn_vert" onclick="toggleLang('jpn_vert')">🗒 縦書き</div>
-      </div>
-      <div style="margin-top:10px;font-size:11px;color:var(--sub);line-height:1.7;">
-        ※ 日本語＋英語の同時認識が最も汎用的です。<br>
-        縦書きのメモ・手紙などは「縦書き」を追加してください。
-      </div>
-    </div>
-  </div>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  <!-- REC BUTTON -->
-  <button class="rec-btn" id="recBtn" onclick="startOCR()" disabled>
-    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    文字を認識する
-  </button>
+        const state = {
+            old: { doc: null, ctx: null, numPages: 0 },
+            new: { doc: null, ctx: null, numPages: 0 },
+            isCompareMode: false, scale: 0.5, translateX: 0, translateY: 0,
+            nudgeX: 0, nudgeY: 0, renderScale: 2.0 // スキャン時は速度重視で2.0
+        };
 
-  <!-- PROGRESS -->
-  <div class="progress-wrap" id="progressWrap">
-    <div class="prog-head">
-      <div class="prog-label" id="progLabel">準備中...</div>
-      <div class="prog-pct" id="progPct">0%</div>
-    </div>
-    <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
-    <div class="prog-status" id="progStatus">言語データを読み込み中...</div>
-    <div class="prog-stages">
-      <div class="prog-stage" id="stg-load">読込</div>
-      <div class="prog-stage" id="stg-init">初期化</div>
-      <div class="prog-stage" id="stg-layout">解析</div>
-      <div class="prog-stage" id="stg-recog">認識</div>
-      <div class="prog-stage" id="stg-done">完了</div>
-    </div>
-  </div>
-
-  <!-- RESULT -->
-  <div class="result-card" id="resultCard">
-    <div class="result-head">
-      <div class="result-head-left">
-        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-        認識完了
-      </div>
-      <div class="result-btns">
-        <button class="r-btn" id="copyBtn" onclick="copyResult()">
-          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          コピー
-        </button>
-        <button class="r-btn" onclick="toggleEdit()">
-          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          編集
-        </button>
-      </div>
-    </div>
-    <textarea class="result-ta" id="resultTA" readonly placeholder="認識結果がここに表示されます..."></textarea>
-    <div class="result-foot">
-      <span style="font-size:11px;color:var(--sub);" id="charCount">0 文字</span>
-      <div class="conf-wrap">
-        信頼度
-        <div class="conf-bar"><div class="conf-fill" id="confFill" style="width:0%"></div></div>
-        <span id="confVal" style="font-size:11px;font-weight:700;">—</span>
-      </div>
-    </div>
-  </div>
-
-</main>
-
-<div class="notify" id="notify"></div>
-
-<!-- Tesseract.js (CDN) -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
-
-<script>
-// ===== STATE =====
-const S = {
-  mode:'upload', imgData:null, rotAngle:0,
-  langs: new Set(['jpn','eng']),
-  drawing:false, penSz:2, eraser:false,
-  processing:false,
-};
-let drawHistory=[], worker=null;
-
-// ===== INIT =====
-window.addEventListener('load',()=>{
-  initDraw();
-  initDrop();
-  // Pre-check Tesseract loaded
-  if(typeof Tesseract==='undefined'){
-    showNotify('Tesseract.jsの読み込みに失敗しました。ネット接続を確認してください。','err');
-  }
-});
-
-// ===== MODE =====
-function setMode(m){
-  S.mode=m;
-  document.getElementById('uploadArea').style.display=m==='upload'?'block':'none';
-  document.getElementById('drawArea').style.display=m==='draw'?'block':'none';
-  document.getElementById('tab-upload').classList.toggle('active',m==='upload');
-  document.getElementById('tab-draw').classList.toggle('active',m==='draw');
-  if(m==='draw') initDraw();
-  updateRecBtn();
-}
-
-// ===== FILE UPLOAD =====
-function handleFile(f){
-  if(!f||!f.type.startsWith('image/')){showNotify('画像ファイルを選択してください','err');return;}
-  const r=new FileReader();
-  r.onload=e=>{
-    S.imgData=e.target.result; S.rotAngle=0;
-    document.getElementById('previewImg').src=e.target.result;
-    document.getElementById('previewImg').style.transform='rotate(0deg)';
-    document.getElementById('previewArea').style.display='block';
-    document.getElementById('dropZone').style.display='none';
-    updatePP(); updateRecBtn();
-  };
-  r.readAsDataURL(f);
-}
-
-function rotatePreview(){
-  S.rotAngle=(S.rotAngle+90)%360;
-  document.getElementById('previewImg').style.transform=`rotate(${S.rotAngle}deg)`;
-}
-
-function clearInput(){
-  S.imgData=null; S.rotAngle=0;
-  document.getElementById('previewArea').style.display='none';
-  document.getElementById('dropZone').style.display='block';
-  document.getElementById('fileInput').value='';
-  document.getElementById('ppPreview').style.display='none';
-  document.getElementById('resultCard').style.display='none';
-  updateRecBtn();
-}
-
-// ===== DRAG & DROP =====
-function initDrop(){
-  const z=document.getElementById('dropZone');
-  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag');});
-  z.addEventListener('dragleave',()=>z.classList.remove('drag'));
-  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleFile(f);});
-}
-
-// ===== PREPROCESS =====
-function updatePP(){
-  if(S.mode==='draw') return;
-  const src=S.imgData;
-  if(!src) return;
-  const bright=parseInt(document.getElementById('bright').value);
-  const contrast=parseInt(document.getElementById('contrast').value);
-  const sharp=parseInt(document.getElementById('sharp').value);
-  const scale=parseFloat(document.getElementById('scale').value);
-  const gray=document.getElementById('togGray').checked;
-  const bin=document.getElementById('togBin').checked;
-  const denoise=document.getElementById('togDenoise').checked;
-  document.getElementById('brightVal').textContent=bright>0?'+'+bright:bright;
-  document.getElementById('contrastVal').textContent=contrast>0?'+'+contrast:contrast;
-  document.getElementById('sharpVal').textContent=sharp;
-  document.getElementById('scaleVal').textContent=scale.toFixed(1)+'x';
-  const img=new Image();
-  img.onload=()=>{
-    const W=Math.round(img.naturalWidth*scale);
-    const H=Math.round(img.naturalHeight*scale);
-    const c=document.getElementById('ppCanvas');
-    c.width=W; c.height=H;
-    const ctx=c.getContext('2d');
-    ctx.save();
-    if(S.rotAngle){
-      ctx.translate(W/2,H/2);
-      ctx.rotate(S.rotAngle*Math.PI/180);
-      ctx.translate(-W/2,-H/2);
-    }
-    ctx.drawImage(img,0,0,W,H);
-    ctx.restore();
-    let id=ctx.getImageData(0,0,W,H);
-    let d=id.data;
-    // brightness & contrast
-    const bv=(bright/100)*255;
-    const cf=contrast>0?(259*(contrast+255))/(255*(259-contrast)):(259*(contrast+255))/(255*(259-contrast));
-    for(let i=0;i<d.length;i+=4){
-      d[i]=clamp(cf*(d[i]-128)+128+bv);
-      d[i+1]=clamp(cf*(d[i+1]-128)+128+bv);
-      d[i+2]=clamp(cf*(d[i+2]-128)+128+bv);
-    }
-    // grayscale
-    if(gray){
-      for(let i=0;i<d.length;i+=4){
-        const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-        d[i]=d[i+1]=d[i+2]=g;
-      }
-    }
-    // binarize
-    if(bin){
-      for(let i=0;i<d.length;i+=4){
-        const v=d[i]>128?255:0;
-        d[i]=d[i+1]=d[i+2]=v;
-      }
-    }
-    // denoise (simple median-like smoothing)
-    if(denoise){
-      const src2=new Uint8ClampedArray(d);
-      for(let y=1;y<H-1;y++){
-        for(let x=1;x<W-1;x++){
-          for(let c2=0;c2<3;c2++){
-            const idx=(y*W+x)*4+c2;
-            d[idx]=Math.round((src2[idx]+src2[idx-4]+src2[idx+4]+src2[(idx-W*4)]+src2[(idx+W*4)])/5);
-          }
+        // UI同期
+        function syncFromSelect(prefix) {
+            const h = document.getElementById(`${prefix}-h`).value;
+            const t = document.getElementById(`${prefix}-t`).value;
+            const u = document.getElementById(`${prefix}-u`).value;
+            document.getElementById(`${prefix}-num`).value = parseInt(h)*100 + parseInt(t)*10 + parseInt(u);
         }
-      }
-    }
-    ctx.putImageData(id,0,0);
-    document.getElementById('ppPreview').style.display='block';
-  };
-  img.src=src;
-}
+        function syncFromInput(prefix) {
+            let val = Math.min(999, Math.max(0, parseInt(document.getElementById(`${prefix}-num`).value) || 0));
+            document.getElementById(`${prefix}-num`).value = val;
+            document.getElementById(`${prefix}-h`).value = Math.floor(val/100);
+            document.getElementById(`${prefix}-t`).value = Math.floor((val%100)/10);
+            document.getElementById(`${prefix}-u`).value = val%10;
+        }
+        function initControls(prefix) {
+            ['h','t','u'].forEach(d => {
+                const s = document.getElementById(`${prefix}-${d}`);
+                for(let i=0;i<=9;i++){ const o=document.createElement('option'); o.value=i; o.text=i; s.appendChild(o); }
+                s.addEventListener('change', () => { syncFromSelect(prefix); loadPage(prefix); });
+            });
+            document.getElementById(`${prefix}-num`).addEventListener('change', () => { syncFromInput(prefix); loadPage(prefix); });
+            document.getElementById(`${prefix}-u`).value = 1; syncFromSelect(prefix);
+        }
+        initControls('old'); initControls('new');
 
-document.querySelectorAll('#togGray,#togBin,#togDenoise').forEach(el=>el.addEventListener('change',updatePP));
-function clamp(v){return Math.min(255,Math.max(0,Math.round(v)));}
+        // ファイルドロップ
+        ['old','new'].forEach(p => {
+            const pane = document.getElementById(`pane-${p}`);
+            pane.addEventListener('dragover', e => { e.preventDefault(); pane.classList.add('drag-over'); });
+            pane.addEventListener('dragleave', () => pane.classList.remove('drag-over'));
+            pane.addEventListener('drop', async e => {
+                e.preventDefault(); pane.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                if(file && file.type === 'application/pdf'){
+                    const el = document.getElementById(`name-${p}`);
+                    el.textContent = "読み込み中...";
+                    const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
+                    state[p].doc = pdf; state[p].numPages = pdf.numPages;
+                    el.textContent = `[全${pdf.numPages}P] ${file.name}`;
+                    loadPage(p);
+                }
+            });
+        });
 
-function getProcessedImageData(){
-  const ppC=document.getElementById('ppCanvas');
-  if(ppC.width>0 && S.mode==='upload'){
-    return ppC.toDataURL('image/png');
-  }
-  if(S.mode==='draw'){
-    return document.getElementById('drawCanvas').toDataURL('image/png');
-  }
-  return S.imgData;
-}
+        async function loadPage(p) {
+            if(!state[p].doc) return;
+            const canvas = document.getElementById(`canvas-${p}`);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            state[p].ctx = ctx;
+            const num = parseInt(document.getElementById(`${p}-num`).value);
+            if(num < 1 || num > state[p].numPages) return;
+            const page = await state[p].doc.getPage(num);
+            const vp = page.getViewport({ scale: state.renderScale });
+            canvas.width = vp.width; canvas.height = vp.height;
+            ctx.fillStyle = "white"; ctx.fillRect(0,0,canvas.width,canvas.height);
+            await page.render({ canvasContext: ctx, viewport: vp }).promise;
+            if(state.isCompareMode) renderDiff();
+        }
 
-// ===== LANGUAGE =====
-function toggleLang(l){
-  if(S.langs.has(l)) S.langs.delete(l);
-  else S.langs.add(l);
-  document.getElementById('lc-'+l).classList.toggle('active',S.langs.has(l));
-  if(S.langs.size===0){S.langs.add('eng');document.getElementById('lc-eng').classList.add('active');}
-}
+        // 差分抽出 (1ページのスキャン用)
+        function checkDiffPixels(ctxO, ctxN, w, h) {
+            const dO = ctxO.getImageData(0,0,w,h).data;
+            const dN = ctxN.getImageData(0,0,w,h).data;
+            let diffCount = 0;
+            for(let i=0; i<dO.length; i+=16) { // 速度のため間引いてチェック
+                if(Math.abs(dO[i] - dN[i]) > 50) diffCount++;
+            }
+            return diffCount > 100; // 一定数以上のピクセル差があれば「食い違い」
+        }
 
-// ===== CANVAS DRAW =====
-let isDown=false,lx=0,ly=0;
-function initDraw(){
-  const c=document.getElementById('drawCanvas');
-  const dpr=window.devicePixelRatio||1;
-  const W=c.parentElement.offsetWidth||340;
-  c.width=W*dpr; c.height=220*dpr;
-  c.style.height='220px';
-  const ctx=c.getContext('2d');
-  ctx.scale(dpr,dpr);
-  ctx.fillStyle='#fff';
-  ctx.fillRect(0,0,W,220);
-  saveSnap();
-  c.onmousedown=e=>startD(e.offsetX,e.offsetY);
-  c.onmousemove=e=>moveD(e.offsetX,e.offsetY);
-  c.onmouseup=()=>endD();
-  c.onmouseleave=()=>endD();
-  c.addEventListener('touchstart',e=>{e.preventDefault();const r=c.getBoundingClientRect(),dpr2=window.devicePixelRatio||1;const t=e.touches[0];startD((t.clientX-r.left)*c.width/(dpr2*r.width),(t.clientY-r.top)*220/r.height);},{passive:false});
-  c.addEventListener('touchmove',e=>{e.preventDefault();const r=c.getBoundingClientRect(),dpr2=window.devicePixelRatio||1;const t=e.touches[0];moveD((t.clientX-r.left)*c.width/(dpr2*r.width),(t.clientY-r.top)*220/r.height);},{passive:false});
-  c.addEventListener('touchend',()=>endD(),{passive:false});
-}
-function startD(x,y){
-  isDown=true;lx=x;ly=y;
-  const c=document.getElementById('drawCanvas');
-  const ctx=c.getContext('2d');
-  ctx.beginPath();ctx.arc(x,y,S.eraser?S.penSz*3:S.penSz/2,0,Math.PI*2);
-  ctx.fillStyle=S.eraser?'white':document.getElementById('penColor').value;
-  ctx.fill();
-  document.getElementById('canvasGuide').style.display='none';
-}
-function moveD(x,y){
-  if(!isDown)return;
-  const c=document.getElementById('drawCanvas');
-  const ctx=c.getContext('2d');
-  ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);
-  ctx.strokeStyle=S.eraser?'white':document.getElementById('penColor').value;
-  ctx.lineWidth=S.eraser?S.penSz*6:S.penSz;
-  ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.stroke();lx=x;ly=y;
-}
-function endD(){if(isDown){isDown=false;saveSnap();updateRecBtn();}}
-function saveSnap(){drawHistory.push(document.getElementById('drawCanvas').toDataURL());if(drawHistory.length>15)drawHistory.shift();}
-function clearDraw(){
-  const c=document.getElementById('drawCanvas');
-  const ctx=c.getContext('2d');
-  const dpr=window.devicePixelRatio||1;
-  ctx.fillStyle='white';ctx.fillRect(0,0,c.width/dpr,c.height/dpr);
-  drawHistory=[];saveSnap();
-  document.getElementById('canvasGuide').style.display='flex';
-  document.getElementById('resultCard').style.display='none';
-  updateRecBtn();
-}
-function undo(){
-  if(drawHistory.length<=1)return;
-  drawHistory.pop();
-  const c=document.getElementById('drawCanvas');
-  const ctx=c.getContext('2d');
-  const dpr=window.devicePixelRatio||1;
-  const img=new Image();
-  img.onload=()=>{ctx.clearRect(0,0,c.width/dpr,c.height/dpr);ctx.drawImage(img,0,0,c.width/dpr,c.height/dpr);};
-  img.src=drawHistory[drawHistory.length-1];
-}
-function setSz(s,id){
-  S.penSz=s;S.eraser=false;
-  document.querySelectorAll('.sz-btn').forEach(e=>e.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  document.getElementById('eraserTool').classList.remove('active');
-}
-function toggleEraser(){
-  S.eraser=!S.eraser;
-  document.getElementById('eraserTool').classList.toggle('active',S.eraser);
-}
+        // 全ページスキャン (メイン新機能)
+        async function scanAllPages() {
+            if(!state.old.doc || !state.new.doc) return alert("両方のPDFを読み込んでください");
+            const maxPages = Math.min(state.old.numPages, state.new.numPages);
+            const overlay = document.getElementById('scan-overlay');
+            const bar = document.getElementById('progress-bar');
+            const countText = document.getElementById('scan-count');
+            const listEl = document.getElementById('scan-list');
+            
+            overlay.style.display = 'flex';
+            listEl.innerHTML = "";
+            
+            const scanCanvasO = document.createElement('canvas');
+            const scanCanvasN = document.createElement('canvas');
+            const sCtxO = scanCanvasO.getContext('2d', {willReadFrequently:true});
+            const sCtxN = scanCanvasN.getContext('2d', {willReadFrequently:true});
 
-// ===== HELPERS =====
-function updateRecBtn(){
-  const hasUpload=S.mode==='upload'&&S.imgData;
-  const hasDraw=S.mode==='draw'&&drawHistory.length>1;
-  document.getElementById('recBtn').disabled=(!hasUpload&&!hasDraw)||S.processing;
-}
+            for(let i=1; i<=maxPages; i++) {
+                bar.style.width = `${(i/maxPages)*100}%`;
+                countText.textContent = `${i} / ${maxPages} ページ目を照合中...`;
 
-// ===== OCR =====
-const STATUS_MAP={
-  'loading tesseract core': '言語エンジンを読み込み中...',
-  'initializing tesseract': 'Tesseractを初期化中...',
-  'loading language traineddata': '言語データをダウンロード中...',
-  'initializing api': 'APIを初期化中...',
-  'recognizing text': '文字を認識中...',
-  'detecting orientation': '文字の向きを検出中...',
-};
+                const pageO = await state.old.doc.getPage(i);
+                const pageN = await state.new.doc.getPage(i);
+                const vp = pageO.getViewport({ scale: 0.5 }); // スキャンは低解像度で高速化
+                
+                scanCanvasO.width = scanCanvasN.width = vp.width;
+                scanCanvasO.height = scanCanvasN.height = vp.height;
 
-async function startOCR(){
-  if(S.processing)return;
-  if(S.langs.size===0){showNotify('言語を1つ以上選択してください','err');return;}
+                await pageO.render({ canvasContext: sCtxO, viewport: vp }).promise;
+                await pageN.render({ canvasContext: sCtxN, viewport: vp }).promise;
 
-  S.processing=true;
-  document.getElementById('recBtn').disabled=true;
-  document.getElementById('progressWrap').classList.add('show');
-  document.getElementById('resultCard').style.display='none';
-  setStage(-1);
+                if(checkDiffPixels(sCtxO, sCtxN, vp.width, vp.height)) {
+                    const btn = document.createElement('button');
+                    btn.className = 'diff-page-btn';
+                    btn.textContent = `P.${i}`;
+                    btn.onclick = () => {
+                        document.getElementById('old-num').value = i;
+                        document.getElementById('new-num').value = i;
+                        syncFromInput('old'); syncFromInput('new');
+                        loadPage('old'); loadPage('new');
+                        if(!state.isCompareMode) toggleCompareMode();
+                    };
+                    listEl.appendChild(btn);
+                }
+            }
+            overlay.style.display = 'none';
+            document.getElementById('scan-results-panel').style.display = 'flex';
+        }
 
-  try{
-    const imgSrc=getProcessedImageData();
-    const langStr=[...S.langs].join('+');
-    const result=await Tesseract.recognize(imgSrc,langStr,{
-      logger:m=>updateProgress(m),
-    });
-    showResult(result.data.text, result.data.confidence);
-  }catch(e){
-    console.error(e);
-    showNotify('認識中にエラーが発生しました: '+e.message,'err');
-  }finally{
-    S.processing=false;
-    document.getElementById('progressWrap').classList.remove('show');
-    updateRecBtn();
-  }
-}
+        // 比較表示・ズーム・移動
+        const mainArea = document.getElementById('main-area');
+        const wrappers = [document.getElementById('wrap-old'), document.getElementById('wrap-new'), document.getElementById('wrap-comp')];
 
-function updateProgress(m){
-  const pct=Math.round((m.progress||0)*100);
-  document.getElementById('progFill').style.width=pct+'%';
-  document.getElementById('progPct').textContent=pct+'%';
-  const label=STATUS_MAP[m.status]||m.status||'処理中...';
-  document.getElementById('progLabel').textContent=label;
-  document.getElementById('progStatus').textContent=m.status||'';
+        function applyTransform() {
+            const tr = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
+            wrappers.forEach(w => w.style.transform = tr);
+        }
+        function resetView() { state.scale = 0.5; state.translateX = 100; state.translateY = 20; applyTransform(); }
+        window.onload = resetView;
 
-  // Stage mapping
-  if(m.status==='loading tesseract core'||m.status==='loading language traineddata') setStage(0);
-  else if(m.status==='initializing tesseract'||m.status==='initializing api') setStage(1);
-  else if(m.status==='detecting orientation') setStage(2);
-  else if(m.status==='recognizing text') setStage(3);
-}
+        mainArea.addEventListener('wheel', e => {
+            e.preventDefault();
+            const delta = e.deltaY * 0.001;
+            let newScale = Math.max(0.05, Math.min(state.scale - delta, 5.0));
+            const rect = mainArea.getBoundingClientRect();
+            state.translateX = (e.clientX - rect.left) - ((e.clientX - rect.left) - state.translateX) * (newScale / state.scale);
+            state.translateY = (e.clientY - rect.top) - ((e.clientY - rect.top) - state.translateY) * (newScale / state.scale);
+            state.scale = newScale; applyTransform();
+        }, { passive: false });
 
-function setStage(n){
-  ['stg-load','stg-init','stg-layout','stg-recog','stg-done'].forEach((id,i)=>{
-    const el=document.getElementById(id);
-    el.className='prog-stage'+(i<n?' done':i===n?' current':'');
-  });
-}
+        let isDrag = false, sx, sy;
+        mainArea.addEventListener('mousedown', e => { if(e.target.closest('.nudge-container')) return; isDrag = true; sx = e.clientX - state.translateX; sy = e.clientY - state.translateY; });
+        window.addEventListener('mousemove', e => { if(!isDrag) return; state.translateX = e.clientX - sx; state.translateY = e.clientY - sy; applyTransform(); });
+        window.addEventListener('mouseup', () => isDrag = false);
 
-function showResult(text,conf){
-  const ta=document.getElementById('resultTA');
-  ta.value=text.trim()||'（テキストを検出できませんでした）';
-  ta.style.height='auto';
-  ta.style.height=Math.max(ta.scrollHeight,80)+'px';
-  document.getElementById('charCount').textContent=text.trim().length+' 文字';
-  const confVal=Math.round(conf);
-  const confColor=confVal>=80?'#1a6b3c':confVal>=50?'#8a6000':'#b32020';
-  document.getElementById('confFill').style.width=confVal+'%';
-  document.getElementById('confFill').style.background=confColor;
-  document.getElementById('confVal').textContent=confVal+'%';
-  document.getElementById('confVal').style.color=confColor;
-  const card=document.getElementById('resultCard');
-  card.style.display='block';
-  setStage(4);
-  card.scrollIntoView({behavior:'smooth',block:'nearest'});
-  if(confVal<40) showNotify('信頼度が低めです。補正を調整して再試行してみてください','err');
-  else showNotify('認識完了！','ok');
-}
+        function toggleCompareMode() {
+            state.isCompareMode = !state.isCompareMode;
+            const btn = document.getElementById('toggle-compare');
+            btn.textContent = state.isCompareMode ? '比較モード：ON' : '比較モード：OFF';
+            btn.classList.toggle('active');
+            document.getElementById('pane-compare').style.display = state.isCompareMode ? 'block' : 'none';
+            if(state.isCompareMode) renderDiff();
+        }
 
-function copyResult(){
-  const t=document.getElementById('resultTA').value;
-  navigator.clipboard.writeText(t).then(()=>{
-    const btn=document.getElementById('copyBtn');
-    btn.classList.add('copied');
-    btn.innerHTML='<svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;"><polyline points="20 6 9 17 4 12"/></svg>コピー済';
-    showNotify('クリップボードにコピーしました','ok');
-    setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML='<svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;stroke-width:2;fill:none;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>コピー';},2000);
-  });
-}
+        function renderDiff() {
+            const cO = document.getElementById('canvas-old'), cN = document.getElementById('canvas-new'), cC = document.getElementById('canvas-comp');
+            if(cO.width===0 || cN.width===0) return;
+            const w = Math.max(cO.width, cN.width), h = Math.max(cO.height, cN.height);
+            cC.width = w; cC.height = h;
+            const ctxC = cC.getContext('2d');
+            const iO = state.old.ctx.getImageData(0,0,cO.width,cO.height).data;
+            const iN = state.new.ctx.getImageData(0,0,cN.width,cN.height).data;
+            const iC = ctxC.createImageData(w, h), dC = iC.data;
 
-function toggleEdit(){
-  const ta=document.getElementById('resultTA');
-  if(ta.readOnly){ta.readOnly=false;ta.focus();ta.style.background='#fffef0';showNotify('編集モードON');}
-  else{ta.readOnly=true;ta.style.background='white';document.getElementById('charCount').textContent=ta.value.length+' 文字';}
-}
+            for(let y=0; y<h; y++) {
+                for(let x=0; x<w; x++) {
+                    const idx = (y*w + x)*4, nx = x-state.nudgeX, ny = y-state.nudgeY;
+                    let hasO = (x<cO.width && y<cO.height && iO[(y*cO.width+x)*4]<200);
+                    let hasN = (nx>=0 && nx<cN.width && ny>=0 && ny<cN.height && iN[(ny*cN.width+nx)*4]<200);
+                    if(hasO && hasN) { dC[idx]=0; dC[idx+1]=0; dC[idx+2]=0; dC[idx+3]=255; }
+                    else if(hasO) { dC[idx]=0; dC[idx+1]=0; dC[idx+2]=255; dC[idx+3]=255; } // 旧=青
+                    else if(hasN) { dC[idx]=255; dC[idx+1]=0; dC[idx+2]=0; dC[idx+3]=255; } // 新=赤
+                    else { dC[idx]=255; dC[idx+1]=255; dC[idx+2]=255; dC[idx+3]=255; }
+                }
+            }
+            ctxC.putImageData(iC, 0, 0);
+        }
 
-// ===== NOTIFY =====
-let nt;
-function showNotify(msg,type=''){
-  const el=document.getElementById('notify');
-  el.textContent=msg;
-  el.className='notify show'+(type==='err'?' err':type==='ok'?' ok':'');
-  clearTimeout(nt);
-  nt=setTimeout(()=>el.classList.remove('show'),2800);
-}
-</script>
+        function nudge(x,y) { state.nudgeX+=x; state.nudgeY+=y; document.getElementById('nudge-x').textContent=state.nudgeX; document.getElementById('nudge-y').textContent=state.nudgeY; renderDiff(); }
+        function resetNudge() { state.nudgeX=0; state.nudgeY=0; nudge(0,0); }
+    </script>
 </body>
 </html>
