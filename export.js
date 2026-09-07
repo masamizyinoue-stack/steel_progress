@@ -1682,27 +1682,36 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     // ── 1. バウンディングボックス（現行PDFと同じロジック）──
     var _hMnX=Infinity,_hMnY=Infinity,_hMxX=-Infinity,_hMxY=-Infinity;
     function _hExp(x,y){if(!isFinite(x)||!isFinite(y))return;if(x<_hMnX)_hMnX=x;if(y<_hMnY)_hMnY=y;if(x>_hMxX)_hMxX=x;if(y>_hMxY)_hMxY=y;}
+    // V2_43: 「範囲指定書出しの線が太すぎる(全体書出と同じ太さにしたい)」との要望
+    // により、線幅・手書き太さ・寸法線太さの基準スケールとして「データ全体を用紙に
+    // 収めた場合の倍率」が必要になった。そのためrangeRect238の有無に関わらず、
+    // 常にデータ全体のバウンディングボックス(_allMnX等)も計算しておく
+    var _allMnX=Infinity,_allMnY=Infinity,_allMxX=-Infinity,_allMxY=-Infinity;
+    function _allExp(x,y){if(!isFinite(x)||!isFinite(y))return;if(x<_allMnX)_allMnX=x;if(y<_allMnY)_allMnY=y;if(x>_allMxX)_allMxX=x;if(y>_allMxY)_allMxY=y;}
+    if(doc){
+      for(const e of doc.sen){_allExp(e.x1,e.y1);_allExp(e.x2,e.y2);}
+      for(const e of doc.enko){const r=e.rx||e.r||0;_allExp(e.cx-r,e.cy-r);_allExp(e.cx+r,e.cy+r);}
+      for(const e of (doc.ten||[])){_allExp(e.x,e.y);}
+      for(const e of (doc.moji||[])){_allExp(e.x,e.y);}
+      for(const e of (doc.solid||[])){for(const p of e.pts)_allExp(p.x,p.y);}
+    }
+    if(typeof pdfImage!=='undefined'&&pdfImage){_allExp(pdfImage.wx,pdfImage.wy);_allExp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
+    for(const img of (typeof images!=='undefined'?images:[])){_allExp(img.wx,img.wy);_allExp(img.wx+img.ww,img.wy-img.wh);}
+    for(const s of strokes)for(const p of s.pts)_allExp(p.x,p.y);
+    for(const d of dims){
+      for(const l of(d.lines||[])){_allExp(l.x1,l.y1);_allExp(l.x2,l.y2);}
+      if(d.tx!=null&&d.ty!=null)_allExp(d.tx,d.ty);
+    }
+
     // V2_38: 「範囲指定書出」の場合、ユーザーがドラッグで指定した矩形(rangeRect238=
     // {x1,y1,x2,y2}、ワールド座標)をそのままバウンディングボックスとして使う。
-    // データ全体を走査する従来ロジックは通さない(=「全体書出」は完全に従来通り)
+    // 「全体書出」は_allMnX等(上で計算したデータ全体の値)をそのまま使うので、
+    // 計算結果はV2_42までと完全に同一(数式・走査ロジックは一切変更していない)
     if(rangeRect238){
       _hMnX=rangeRect238.x1; _hMnY=rangeRect238.y1;
       _hMxX=rangeRect238.x2; _hMxY=rangeRect238.y2;
     }else{
-      if(doc){
-        for(const e of doc.sen){_hExp(e.x1,e.y1);_hExp(e.x2,e.y2);}
-        for(const e of doc.enko){const r=e.rx||e.r||0;_hExp(e.cx-r,e.cy-r);_hExp(e.cx+r,e.cy+r);}
-        for(const e of (doc.ten||[])){_hExp(e.x,e.y);}
-        for(const e of (doc.moji||[])){_hExp(e.x,e.y);}
-        for(const e of (doc.solid||[])){for(const p of e.pts)_hExp(p.x,p.y);}
-      }
-      if(typeof pdfImage!=='undefined'&&pdfImage){_hExp(pdfImage.wx,pdfImage.wy);_hExp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
-      for(const img of (typeof images!=='undefined'?images:[])){_hExp(img.wx,img.wy);_hExp(img.wx+img.ww,img.wy-img.wh);}
-      for(const s of strokes)for(const p of s.pts)_hExp(p.x,p.y);
-      for(const d of dims){
-        for(const l of(d.lines||[])){_hExp(l.x1,l.y1);_hExp(l.x2,l.y2);}
-        if(d.tx!=null&&d.ty!=null)_hExp(d.tx,d.ty);
-      }
+      _hMnX=_allMnX; _hMnY=_allMnY; _hMxX=_allMxX; _hMxY=_allMxY;
     }
     if(!isFinite(_hMnX)){showGuide('描画データがありません',2000);return true;} // V1_169: 閉じる連携用(データなし=出力不要なので閉じる処理は継続)
 
@@ -1718,25 +1727,60 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     const aspect=extW/extH;
     // V1_153: 「A4版ではなくA3版にして」との要望により、長辺を297mm(A4)→420mm(A3)に変更
     const PDF_LONG_MM=420;
-    const pageMM_W=aspect>=1?PDF_LONG_MM:Math.round(PDF_LONG_MM*aspect);
-    const pageMM_H=aspect>=1?Math.round(PDF_LONG_MM/aspect):PDF_LONG_MM;
 
-    // V1_155: DXF線・円弧・文字・書き込み(手書き・寸法)を全てベクター描画するため、
-    // 実際に大きなCanvasを作成する必要が無くなった。LONG_PXは「画面表示相当の
-    // 線幅・文字サイズになるようスケール計算するための参照値」としてのみ使用し、
-    // メモリ見積り・実測アロケーションテストは不要になったため削除した
-    const LONG_PX=6500;
-    const CW=aspect>=1?LONG_PX:Math.round(LONG_PX*aspect);
-    const CH=aspect>=1?Math.round(LONG_PX/aspect):LONG_PX;
-    const pdfScale=Math.min(CW/extW, CH/extH);
+    // V2_43: 線幅・手書き太さ・寸法線太さの基準スケール。「データ全体を用紙(A3長辺
+    // 420mm基準)に収めた場合の倍率」を常に使うことで、範囲指定書出でも全体書出と
+    // 同じ物理的な太さ(用紙上のmm数)になるようにする。全体書出時はこの値が
+    // pdfScale*_sx(通常の実効倍率)と完全に一致するため、_lwScale242を使っても
+    // 使わなくても全体書出の結果は変わらない
+    let _lwScale242=1;
+    if(isFinite(_allMnX)){
+      const allEW=_allMxX-_allMnX, allEH=_allMxY-_allMnY;
+      const allExtW=allEW*(1+2*PAD), allExtH=allEH*(1+2*PAD);
+      const allAspect=allExtW/allExtH;
+      _lwScale242 = allAspect>=1 ? PDF_LONG_MM/allExtW : PDF_LONG_MM/allExtH;
+    }
 
-    // ── 3. 座標変換 ──
-    const tx_p = -extMinX * pdfScale;
-    const ty_p =  CH + extMinY * pdfScale;
-    const _sx = pageMM_W / CW;
-    const _sy = pageMM_H / CH;
-    const w2mx = wx => ( wx * pdfScale + tx_p) * _sx;
-    const w2my = wy => (-wy * pdfScale + ty_p) * _sy;
+    // V2_40修正: _sx/_syはページサイズ決定ブロックの外(このexportHybridPDF関数の
+    // 後方、線幅・文字サイズ計算など多数箇所)で参照されるため、if/elseのブロック内で
+    // constにすると関数スコープから見えずReferenceErrorになる(全体書出でも発生する
+    // 致命的バグだった)。関数トップレベルのvarにして両分岐から代入できるようにした
+    var pageMM_W, pageMM_H, pdfScale, w2mx, w2my, _sx=1, _sy=1;
+    if(rangeRect238){
+      // V2_40: 「範囲指定書出」は用紙を常にA3(297×420mm)固定にする。従来の「全体書出」は
+      // 用紙自体を内容のアスペクト比に合わせて可変にしていたが、範囲指定時はユーザーが
+      // 選んだ矩形のアスペクト比がまちまちのため、A3固定を望まれた。用紙とコンテンツの
+      // アスペクト比が一致しないことがあるので、内容を歪ませず等倍スケールのまま
+      // 用紙内に収まる最大サイズで中央配置し、余白ができる形にする(レターボックス)
+      const A3_SHORT=297, A3_LONG=420;
+      pageMM_W = aspect>=1 ? A3_LONG : A3_SHORT;
+      pageMM_H = aspect>=1 ? A3_SHORT : A3_LONG;
+      pdfScale = Math.min(pageMM_W/extW, pageMM_H/extH);
+      const usedW=extW*pdfScale, usedH=extH*pdfScale;
+      const offX=(pageMM_W-usedW)/2, offY=(pageMM_H-usedH)/2;
+      w2mx = wx => (wx-extMinX)*pdfScale + offX;
+      w2my = wy => pageMM_H - offY - (wy-extMinY)*pdfScale;
+    }else{
+      pageMM_W=aspect>=1?PDF_LONG_MM:Math.round(PDF_LONG_MM*aspect);
+      pageMM_H=aspect>=1?Math.round(PDF_LONG_MM/aspect):PDF_LONG_MM;
+
+      // V1_155: DXF線・円弧・文字・書き込み(手書き・寸法)を全てベクター描画するため、
+      // 実際に大きなCanvasを作成する必要が無くなった。LONG_PXは「画面表示相当の
+      // 線幅・文字サイズになるようスケール計算するための参照値」としてのみ使用し、
+      // メモリ見積り・実測アロケーションテストは不要になったため削除した
+      const LONG_PX=6500;
+      const CW=aspect>=1?LONG_PX:Math.round(LONG_PX*aspect);
+      const CH=aspect>=1?Math.round(LONG_PX/aspect):LONG_PX;
+      pdfScale=Math.min(CW/extW, CH/extH);
+
+      // ── 3. 座標変換 ──
+      const tx_p = -extMinX * pdfScale;
+      const ty_p =  CH + extMinY * pdfScale;
+      _sx = pageMM_W / CW;
+      _sy = pageMM_H / CH;
+      w2mx = wx => ( wx * pdfScale + tx_p) * _sx;
+      w2my = wy => (-wy * pdfScale + ty_p) * _sy;
+    }
 
     // ── 5. jsPDF 生成 ──
     if(typeof window.jspdf==='undefined'){showGuide('jsPDFが読み込まれていません',2000);return false;} // V1_169: 閉じる連携用(出力失敗時は閉じない)
@@ -1748,17 +1792,15 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     pdf.setFillColor(255,255,255);
     pdf.rect(0,0,pageMM_W,pageMM_H,'F');
 
-    // V2_38: 「範囲指定書出」の場合、範囲の境界をまたぐ線・文字等がページ外まで
-    // 突き出て描画されるのを防ぐため、ページ全体でクリップする。「全体書出」時は
-    // バウンディングボックス自体がデータ全体なのではみ出ることが無く、常時適用しても
-    // 実害はないため分岐せず常に行う(jsPDFがclip未対応の環境向けにフォールバックあり)
-    if(typeof pdf.clip==='function'){
-      try{
-        pdf.rect(0,0,pageMM_W,pageMM_H);
-        pdf.clip();
-        if(typeof pdf.discardPath==='function') pdf.discardPath();
-      }catch(clipErr238){ console.warn('[HybridPDF] clip未対応のためスキップ',clipErr238); }
-    }
+    // V2_39: V2_38で追加した「ページ全体でのclip()」処理が原因で、全体書出・
+    // 範囲指定書出のどちらもPDFに何も表示されなくなる重大な不具合が発生したため
+    // 削除した(jsPDF 2.5.1のclip/discardPathの組み合わせが想定通りに動作せず、
+    // 以降の全描画がクリップ領域の外に扱われてしまっていたとみられる)。
+    // 「範囲指定書出時、境界をまたぐ線がページ外に少しはみ出て見える可能性がある」
+    // という副作用よりも「そもそも何も出力されない」方が重大な問題のため、
+    // このクリップ処理自体を撤去し、V2_37以前の(常に正常に表示されていた)
+    // 描画方式に戻す。範囲外の見た目の対策は別途、必要であれば要素の事前
+    // フィルタリング等、別の安全な方法で検討する。
 
     // 色設定ヘルパー（e.color は {r,g,b} オブジェクト。白背景用に近白色は黒に変換）
     function _setPdfColor(col){
@@ -1771,8 +1813,22 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     }
 
     // 線幅ヘルパー（現行canvas算出式と同じ: max(0.8, lw*scale*1.4) px → mm変換）
+    // V2_43: 範囲指定書出時は、範囲を拡大表示するpdfScaleの代わりに_lwScale242
+    // (全体書出相当のスケール)を使い、全体書出と同じ物理的な太さに揃える
+    // V2_44: 「DXFの線が異様に太い」バグを修正。下限値0.8は本来「全体書出の
+    // 仮想キャンバス(LONG_PX=6500px)上でのpx単位」を意図した値で、全体書出では
+    // Math.max(0.8, ...)の後に_sx(px→mm変換, 通常0.06程度)を掛けるため実質約0.05mm
+    // 相当になっていた。しかし範囲指定書出(A3固定)は仮想キャンバスを経由せず
+    // _sx=1固定のため、0.8がそのまま「0.8mm」という極太の下限として使われて
+    // しまっていた(これが「異様に太い」の直接の原因)。範囲指定書出時は、0.8px
+    // 相当を全体書出と同じ比率でmmに換算した値(_minLwMM244)を下限として使う
+    const _minLwMM244 = 0.8*(PDF_LONG_MM/6500);
     function _lwMM(lw){
-      return Math.max(0.1, Math.max(0.8,(lw||0)*pdfScale*1.4)*_sx);
+      if(rangeRect238){
+        return Math.max(0.1, Math.max(_minLwMM244,(lw||0)*_lwScale242*1.4));
+      }else{
+        return Math.max(0.1, Math.max(0.8,(lw||0)*pdfScale*1.4)*_sx); // 全体書出: 計算式は一切変更していない
+      }
     }
 
     // V1_153: 線種(点線・一点鎖線等)のダッシュパターンをmm単位に変換するヘルパー。
@@ -1780,7 +1836,8 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     // いるが、旧HD-PDF実装(V0_123〜V0_153)にはこの処理が無く、全て実線になっていた
     function _dashMM(dashArr){
       if(!dashArr||dashArr.length===0) return [];
-      return dashArr.map(function(d){ return Math.max(0.05, d*pdfScale*_sx); });
+      const sc=rangeRect238?_lwScale242:pdfScale; // V2_43
+      return dashArr.map(function(d){ return Math.max(0.05, d*sc*_sx); });
     }
 
     // V1_170: 手書き（ペン・蛍光ペン）ベクター描画をfilterModeで絞り込めるよう関数化。
@@ -1797,6 +1854,11 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         if((s.page||1)!==_curPg155) continue;
         if(filterMode==='hl'&&!s.hl) continue;
         if(filterMode==='pen'&&s.hl) continue;
+        if(rangeRect238){ // V2_41
+          let sMnX=Infinity,sMnY=Infinity,sMxX=-Infinity,sMxY=-Infinity;
+          for(const p of s.pts){if(p.x<sMnX)sMnX=p.x;if(p.y<sMnY)sMnY=p.y;if(p.x>sMxX)sMxX=p.x;if(p.y>sMxY)sMxY=p.y;}
+          if(!_inRange241(sMnX,sMnY,sMxX,sMxY)) continue;
+        }
         const n=s.pts.length;
         const col=s.color||{r:0,g:0,b:0};
         // V1_189: 「HD-PDFの蛍光ペンが画面より細くなる」との指摘により修正。
@@ -1806,41 +1868,97 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         // (図面全体をLONG_PXへ収めるための固定スケールpdfScale)で計算しているため、
         // 太さだけscale基準のままだと現在のズーム状態次第で細くなったり太くなったりして
         // いた。DXF線の太さ(_lwMM)と同じくpdfScale基準に統一する。
-        const lwPx=s.hl?(s.lw*(pdfScale/lwRef155)):Math.max(1,s.lw*(pdfScale/lwRef155));
+        const _strokeSc242=rangeRect238?_lwScale242:pdfScale; // V2_43: 範囲指定書出は全体書出相当スケールで太さを揃える
+        const lwPx=s.hl?(s.lw*(_strokeSc242/lwRef155)):Math.max(1,s.lw*(_strokeSc242/lwRef155));
         pdf.setDrawColor(col.r,col.g,col.b);
         pdf.setLineWidth(Math.max(0.05,lwPx*_sx));
         pdf.setLineCap('round'); pdf.setLineJoin('round');
         if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':0.45}));
-        const P=s.pts.map(p=>[w2mx(p.x),w2my(p.y)]);
-        if(n===2){
-          pdf.line(P[0][0],P[0][1],P[1][0],P[1][1]);
-        }else{
-          let curX=(P[0][0]+P[1][0])/2, curY=(P[0][1]+P[1][1])/2;
-          const startX=curX, startY=curY;
-          const segs=[];
-          for(let i=1;i<n-1;i++){
-            const Qx=P[i][0], Qy=P[i][1];
-            const P2x=(P[i][0]+P[i+1][0])/2, P2y=(P[i][1]+P[i+1][1])/2;
-            const C1x=curX+2/3*(Qx-curX), C1y=curY+2/3*(Qy-curY);
-            const C2x=P2x+2/3*(Qx-P2x), C2y=P2y+2/3*(Qy-P2y);
-            segs.push([C1x-curX,C1y-curY,C2x-curX,C2y-curY,P2x-curX,P2y-curY]);
-            curX=P2x; curY=P2y;
+        if(rangeRect238){
+          // V2_42: 範囲指定書出時は境界で正確にクリップするため、ベジェ曲線ではなく
+          // 隣接する2点ずつを直線分割してクリップ描画する(滑らかさより範囲の
+          // 正確さを優先する。全体書出時は下のelse節で従来通りベジェ曲線を描く)
+          for(let i=0;i<n-1;i++){
+            const cl=_clipLine242(s.pts[i].x,s.pts[i].y,s.pts[i+1].x,s.pts[i+1].y,rangeRect238);
+            if(cl) pdf.line(w2mx(cl[0]),w2my(cl[1]),w2mx(cl[2]),w2my(cl[3]));
           }
-          segs.push([P[n-1][0]-curX, P[n-1][1]-curY]);
-          pdf.lines(segs,startX,startY,[1,1],'S',false);
+        }else{
+          const P=s.pts.map(p=>[w2mx(p.x),w2my(p.y)]);
+          if(n===2){
+            pdf.line(P[0][0],P[0][1],P[1][0],P[1][1]);
+          }else{
+            let curX=(P[0][0]+P[1][0])/2, curY=(P[0][1]+P[1][1])/2;
+            const startX=curX, startY=curY;
+            const segs=[];
+            for(let i=1;i<n-1;i++){
+              const Qx=P[i][0], Qy=P[i][1];
+              const P2x=(P[i][0]+P[i+1][0])/2, P2y=(P[i][1]+P[i+1][1])/2;
+              const C1x=curX+2/3*(Qx-curX), C1y=curY+2/3*(Qy-curY);
+              const C2x=P2x+2/3*(Qx-P2x), C2y=P2y+2/3*(Qy-P2y);
+              segs.push([C1x-curX,C1y-curY,C2x-curX,C2y-curY,P2x-curX,P2y-curY]);
+              curX=P2x; curY=P2y;
+            }
+            segs.push([P[n-1][0]-curX, P[n-1][1]-curY]);
+            pdf.lines(segs,startX,startY,[1,1],'S',false);
+          }
         }
         if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':1}));
       }
+    }
+
+    // V2_41: 「範囲指定書出」時、指定矩形(rangeRect238)と全く重ならない要素は
+    // 描画しないようにする(要素単位のフィルタリング)。境界をまたぐ要素は
+    // 従来通りそのまま描画される(はみ出て見える可能性はV2_39から許容している方針)。
+    // AABB(バウンディングボックス)交差判定のみの簡易版で、線分の一部だけを
+    // 切り取るような厳密なクリップは行わない(V2_38のjsPDF clip()導入時に
+    // 重大な描画不具合が出た経緯があるため、安全な方法に限定する)。
+    function _inRange241(minX,minY,maxX,maxY){
+      if(!rangeRect238) return true;
+      return minX<=rangeRect238.x2 && maxX>=rangeRect238.x1 && minY<=rangeRect238.y2 && maxY>=rangeRect238.y1;
+    }
+
+    // V2_42: 「境界をまたぐ要素は境界内だけ書き出したい」との要望により、線分を
+    // 指定矩形(rangeRect238、x1<=x2,y1<=y2前提)で正確に切り取るヘルパーを追加。
+    // Liang-Barskyアルゴリズム(標準的な線分クリッピング手法)。完全に範囲外ならnullを
+    // 返す。DXF線・円弧(36分割線分近似)・手書き線・寸法線はこれで境界ぴったりに
+    // 切り取れるが、文字(DXF文字・寸法値)は行単位でしか描画できず分割不可能なため、
+    // 引き続き基準点が範囲内かどうかで全体描画/非描画を判定する(V2_41のまま)。
+    function _clipLine242(x1,y1,x2,y2,rect){
+      let t0=0, t1=1;
+      const dx=x2-x1, dy=y2-y1;
+      const p=[-dx, dx, -dy, dy];
+      const q=[x1-rect.x1, rect.x2-x1, y1-rect.y1, rect.y2-y1];
+      for(let i=0;i<4;i++){
+        if(p[i]===0){
+          if(q[i]<0) return null;
+        }else{
+          const r=q[i]/p[i];
+          if(p[i]<0){
+            if(r>t1) return null;
+            if(r>t0) t0=r;
+          }else{
+            if(r<t0) return null;
+            if(r<t1) t1=r;
+          }
+        }
+      }
+      return [x1+t0*dx, y1+t0*dy, x1+t1*dx, y1+t1*dy];
     }
 
     // ── 6. DXF線分（sen）ベクター描画 ──
     if(doc&&doc.sen){
       for(const e of doc.sen){
         if(hiddenLayers.has(e.layer)) continue;
+        let lx1=e.x1, ly1=e.y1, lx2=e.x2, ly2=e.y2;
+        if(rangeRect238){
+          const cl=_clipLine242(lx1,ly1,lx2,ly2,rangeRect238);
+          if(!cl) continue;
+          lx1=cl[0];ly1=cl[1];lx2=cl[2];ly2=cl[3];
+        }
         _setPdfColor(e.color);
         pdf.setLineWidth(_lwMM(e.lw));
         pdf.setLineDashPattern(_dashMM(e.dash),0); // V1_153
-        pdf.line(w2mx(e.x1),w2my(e.y1),w2mx(e.x2),w2my(e.y2));
+        pdf.line(w2mx(lx1),w2my(ly1),w2mx(lx2),w2my(ly2));
       }
     }
 
@@ -1848,28 +1966,44 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     if(doc&&doc.enko){
       for(const e of doc.enko){
         if(hiddenLayers.has(e.layer)) continue;
+        const r=e.rx||e.r||0; if(r<=0) continue;
+        if(!_inRange241(e.cx-r,e.cy-r,e.cx+r,e.cy+r)) continue;
         _setPdfColor(e.color);
         pdf.setLineWidth(_lwMM(e.lw));
         pdf.setLineDashPattern(_dashMM(e.dash),0); // V1_153
-        const r=e.rx||e.r||0; if(r<=0) continue;
         const a1=e.a1!=null?e.a1:0, a2=e.a2!=null?e.a2:360;
         const cxmm=w2mx(e.cx), cymm=w2my(e.cy);
         const rMM=r*pdfScale*_sx;
-        if(a1===0&&a2===360){
-          // 真円: jsPDF circle()
+        if(a1===0&&a2===360&&!rangeRect238){
+          // 真円(全体書出時のみ): 従来通りjsPDF circle()。この分岐の計算式は
+          // V2_42でも一切変更していない
           pdf.circle(cxmm,cymm,rMM,'S');
         }else{
-          // 円弧: 36分割線分近似（DXF角度: X軸正から反時計回り）
+          // 円弧、または範囲指定書出時の真円: 36分割線分近似（DXF角度: X軸正から反時計回り）
           const rad1=a1*Math.PI/180;
           let rad2=a2*Math.PI/180;
-          if(rad2<=rad1) rad2+=2*Math.PI; // 折り返しアーク対応
+          if(rad2<=rad1) rad2+=2*Math.PI; // 折り返しアーク対応(a1=0,a2=360の場合も自動的にrad2=2πになる)
           const N=36;
-          let px0=cxmm+rMM*Math.cos(rad1), py0=cymm-rMM*Math.sin(rad1);
-          for(let i=1;i<=N;i++){
-            const a=rad1+(rad2-rad1)*i/N;
-            const px1=cxmm+rMM*Math.cos(a), py1=cymm-rMM*Math.sin(a);
-            pdf.line(px0,py0,px1,py1);
-            px0=px1; py0=py1;
+          if(rangeRect238){
+            // V2_42: 範囲指定書出時は境界で正確にクリップするため、ワールド座標で
+            // 各微小線分を計算してからクリップし、その後mm座標へ変換する
+            let wx0=e.cx+r*Math.cos(rad1), wy0=e.cy+r*Math.sin(rad1);
+            for(let i=1;i<=N;i++){
+              const a=rad1+(rad2-rad1)*i/N;
+              const wx1=e.cx+r*Math.cos(a), wy1=e.cy+r*Math.sin(a);
+              const cl=_clipLine242(wx0,wy0,wx1,wy1,rangeRect238);
+              if(cl) pdf.line(w2mx(cl[0]),w2my(cl[1]),w2mx(cl[2]),w2my(cl[3]));
+              wx0=wx1; wy0=wy1;
+            }
+          }else{
+            // 全体書出時: 従来通りmm座標で直接計算(計算式は一切変更していない)
+            let px0=cxmm+rMM*Math.cos(rad1), py0=cymm-rMM*Math.sin(rad1);
+            for(let i=1;i<=N;i++){
+              const a=rad1+(rad2-rad1)*i/N;
+              const px1=cxmm+rMM*Math.cos(a), py1=cymm-rMM*Math.sin(a);
+              pdf.line(px0,py0,px1,py1);
+              px0=px1; py0=py1;
+            }
           }
         }
       }
@@ -1892,6 +2026,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
       for(const e of doc.moji){
         if(hiddenLayers.has(e.layer)) continue;
         if(!e.text||!e.text.trim()) continue;
+        if(!_inRange241(e.x,e.y,e.x,e.y)) continue; // V2_41
         const xmm=w2mx(e.x);
         const ymm=w2my(e.y);
         // V1_153: V1_152の「最低6px相当」クランプは、6という数値がCanvas(CW)側の
@@ -2013,20 +2148,41 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
       const _curPg155b=_curPage();
       for(const d of dims){
         if((d.page||1)!==_curPg155b) continue;
+        if(rangeRect238){ // V2_41
+          let dMnX=Infinity,dMnY=Infinity,dMxX=-Infinity,dMxY=-Infinity;
+          for(const l of (d.lines||[])){
+            if(l.x1<dMnX)dMnX=l.x1; if(l.y1<dMnY)dMnY=l.y1; if(l.x1>dMxX)dMxX=l.x1; if(l.y1>dMxY)dMxY=l.y1;
+            if(l.x2<dMnX)dMnX=l.x2; if(l.y2<dMnY)dMnY=l.y2; if(l.x2>dMxX)dMxX=l.x2; if(l.y2>dMxY)dMxY=l.y2;
+          }
+          if(d.tx!=null&&d.ty!=null){if(d.tx<dMnX)dMnX=d.tx;if(d.ty<dMnY)dMnY=d.ty;if(d.tx>dMxX)dMxX=d.tx;if(d.ty>dMxY)dMxY=d.ty;}
+          if(isFinite(dMnX) && !_inRange241(dMnX,dMnY,dMxX,dMxY)) continue;
+        }
         const [dr,dg,db]=_hpHexColor(d.color);
         pdf.setDrawColor(dr,dg,db); pdf.setFillColor(dr,dg,db); pdf.setTextColor(dr,dg,db);
         // V1_156: 画面表示(dimensionTextMode='fixed')の比率(17px基準)をmmへ換算
         const worldH=d.worldFontH||(17/(scale||1));
-        const fsMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5);
-        const lineMM=Math.max(0.05, fsMM/17);
-        const arrowLenMM=fsMM*(10/(17*1.5));
-        const arrowWMM=fsMM*(4/(17*1.5));
+        const fsMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5); // 文字サイズ(表示用、変更なし)
+        // V2_43: 「範囲指定書出しの線が太すぎる」との要望により、寸法線・矢印・
+        // センターマークの太さ/サイズは、範囲指定書出時のみ全体書出相当の
+        // スケール(_lwScale242)を基準にする。文字サイズ(fsMM)・文字との間隔(gapMM)
+        // は従来通り拡大表示のまま(全体書出時はlwBaseMM===fsMMとなり計算結果は不変)
+        const _dimLwSc242=rangeRect238?_lwScale242:pdfScale;
+        const lwBaseMM=Math.max(DIM_MIN_TEXT_MM, worldH*_dimLwSc242*_sx*1.5);
+        const lineMM=Math.max(0.05, lwBaseMM/17);
+        const arrowLenMM=lwBaseMM*(10/(17*1.5));
+        const arrowWMM=lwBaseMM*(4/(17*1.5));
         const gapMM=fsMM*(8/(17*1.5));
-        const centerMarkMM=fsMM*(8/(17*1.5));
+        const centerMarkMM=lwBaseMM*(8/(17*1.5));
         pdf.setLineWidth(lineMM);
         pdf.setLineCap('butt'); pdf.setLineJoin('miter');
         for(const l of (d.lines||[])){
-          pdf.line(w2mx(l.x1),w2my(l.y1),w2mx(l.x2),w2my(l.y2));
+          if(rangeRect238){
+            // V2_42: 寸法線も境界で正確にクリップする
+            const cl=_clipLine242(l.x1,l.y1,l.x2,l.y2,rangeRect238);
+            if(cl) pdf.line(w2mx(cl[0]),w2my(cl[1]),w2mx(cl[2]),w2my(cl[3]));
+          }else{
+            pdf.line(w2mx(l.x1),w2my(l.y1),w2mx(l.x2),w2my(l.y2));
+          }
         }
         for(const a of (d.arrows||[])){
           const axmm=w2mx(a.x), aymm=w2my(a.y);
