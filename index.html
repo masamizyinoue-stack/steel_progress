@@ -1116,7 +1116,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label">V2_45</span>
+    <span id="ver-label">V2_46</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1555,27 +1555,27 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=245"></script>
-<script src="viewer.js?v=245"></script>
-<script src="utils.js?v=245"></script>
-<script src="ui.js?v=245"></script>
-<script src="dialog.js?v=245"></script>
-<script src="storage.js?v=245"></script>
-<script src="fonts/NotoSansJP.js?v=245"></script>
-<script src="export.js?v=245"></script>
-<script src="tool.js?v=245"></script>
-<script src="verify.js?v=245"></script>
+<script src="layer.js?v=246"></script>
+<script src="viewer.js?v=246"></script>
+<script src="utils.js?v=246"></script>
+<script src="ui.js?v=246"></script>
+<script src="dialog.js?v=246"></script>
+<script src="storage.js?v=246"></script>
+<script src="fonts/NotoSansJP.js?v=246"></script>
+<script src="export.js?v=246"></script>
+<script src="tool.js?v=246"></script>
+<script src="verify.js?v=246"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
-<script src="shxGlyphs.js?v=245"></script>
-<script src="stroke-text.js?v=245"></script>
+<script src="shxGlyphs.js?v=246"></script>
+<script src="stroke-text.js?v=246"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=245"></script>
+<script src="pc.js?v=246"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=245"></script>
+<script src="supabase-sync.js?v=246"></script>
 <script>
-const APP_VERSION = 'V2_45';
+const APP_VERSION = 'V2_46';
 
 // =========================================================
 // グローバル状態
@@ -6698,7 +6698,7 @@ window._renderAllSubWindows=function(){
    _justOp   : 演算子押下直後フラグ（次の数字で入力リセット） */
 let leftVal='',pendingOp='',curInput='0';
 let _afterEq=false,_justOp=false;
-let _lastOp='',_lastOperand=''; // V2_45: 「=」連続押しの定数計算用(直前に実際に使った演算子・右辺値)
+let _lastOp='',_lastOperand=''; // V2_46: 「=」連続押しの定数計算用(直前に実際に使った演算子・右辺値)
 let _dispExpr=''; // 式表示用。=後も保持し新規入力開始時にクリア
 let _dispTokens=[]; // 表示用トークン（内部計算から分離）
 
@@ -6842,7 +6842,7 @@ document.querySelectorAll('.cb').forEach(function(btn){
 
       if(fn==='C'){
         leftVal='';pendingOp='';curInput='0';_afterEq=false;_justOp=false;
-        _lastOp='';_lastOperand=''; // V2_45: 定数計算の記憶もクリア
+        _lastOp='';_lastOperand=''; // V2_46: 定数計算の記憶もクリア
         _dispExpr='';_dispTokens=[];
       }else if(fn==='⌫'){
         if(!_afterEq&&!_justOp) curInput=curInput.length>1?curInput.slice(0,-1):'0';
@@ -6857,7 +6857,7 @@ document.querySelectorAll('.cb').forEach(function(btn){
         curInput=parseFloat(Math.pow(cur,2).toFixed(d)).toString();
       }else if(fn==='='){
         if(pendingOp&&leftVal!==''){
-          // V2_45: 定数計算用に、今回実際に使った演算子・右辺値を記憶しておく
+          // V2_46: 定数計算用に、今回実際に使った演算子・右辺値を記憶しておく
           _lastOp=pendingOp;_lastOperand=curInput;
           var toks=_dispTokens.slice();
           if(toks.length&&toks[toks.length-1].type==='op')
@@ -6870,7 +6870,7 @@ document.querySelectorAll('.cb').forEach(function(btn){
           _dispExpr=dispForHist+' =';
           _dispTokens=[];
         }else if(_afterEq&&_lastOp){
-          // V2_45: 「=」を演算子を挟まず連続で押した場合、直前の演算子・右辺値を
+          // V2_46: 「=」を演算子を挟まず連続で押した場合、直前の演算子・右辺値を
           // 使って同じ計算を繰り返す(一般的な電卓の定数計算)
           var toks2=[{type:'num',val:curInput},{type:'op',val:_lastOp},{type:'num',val:_lastOperand}];
           var dispForHist2=_tokensToStr(toks2);

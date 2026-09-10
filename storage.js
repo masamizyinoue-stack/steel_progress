@@ -25,7 +25,13 @@ const _LS_IDB_NAME='dxfViewerFilesDB';
 const _LS_IDB_VER=1;
 const _LS_IDB_STORE='dxfFiles';
 
+// V2_46: doSave()のたび（約800msデバウンスで高頻度）に呼ばれるが、従来は毎回
+// indexedDB.open()で新規接続を開き、一度もclose()していなかった。_dvAutoSave()で
+// 実際にクラッシュを引き起こしたのと同じ「未クローズ接続が溜まる」パターンのため、
+// _dvOpenIdb()と同じ対策（接続キャッシュ＋onclose検知による自動再接続）を適用した
+var _lsIdbConn=null;
 function _lsIdbOpen(cb){
+  if(_lsIdbConn){cb(null,_lsIdbConn);return;}
   var req=indexedDB.open(_LS_IDB_NAME,_LS_IDB_VER);
   req.onupgradeneeded=function(e){
     var db=e.target.result;
@@ -33,7 +39,11 @@ function _lsIdbOpen(cb){
     if(!db.objectStoreNames.contains(_LS_IDB_STORE))
       db.createObjectStore(_LS_IDB_STORE,{keyPath:'name'});
   };
-  req.onsuccess=function(e){cb(null,e.target.result);};
+  req.onsuccess=function(e){
+    _lsIdbConn=e.target.result;
+    _lsIdbConn.onclose=function(){_lsIdbConn=null;};
+    cb(null,_lsIdbConn);
+  };
   req.onerror=function(e){cb(e.target.error,null);};
 }
 
@@ -530,7 +540,12 @@ const _BK_IDB_STORE='backups';
 const _BK_COOLDOWN=60000; // 60秒
 const _BK_KEEP=5;         // ファイルごとに保持する世代数
 
+// V2_46: 60秒クールダウンごとに呼ばれるが、従来は毎回indexedDB.open()で新規接続を
+// 開き、一度もclose()していなかった。_dvOpenIdb()と同じ対策（接続キャッシュ＋
+// onclose検知による自動再接続）を適用した
+var _bkIdbConn=null;
 function _bkIdbOpen(cb){
+  if(_bkIdbConn){cb(null,_bkIdbConn);return;}
   var req=indexedDB.open(_BK_IDB_NAME,_BK_IDB_VER);
   req.onupgradeneeded=function(e){
     var db=e.target.result;
@@ -540,7 +555,11 @@ function _bkIdbOpen(cb){
       store.createIndex('ts','ts',{unique:false});
     }
   };
-  req.onsuccess=function(e){cb(null,e.target.result);};
+  req.onsuccess=function(e){
+    _bkIdbConn=e.target.result;
+    _bkIdbConn.onclose=function(){_bkIdbConn=null;};
+    cb(null,_bkIdbConn);
+  };
   req.onerror=function(e){cb(e.target.error,null);};
 }
 
